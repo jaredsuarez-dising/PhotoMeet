@@ -6,7 +6,184 @@
     <title>Login y Registro</title>
     <script type="module">
         import supabase from '/src/js/supabaseClient.js';
-        window.supabase = supabase;
+        
+        // Exponer supabase globalmente si es necesario para otros scripts que no son modules (menos recomendado)
+        // window.supabase = supabase;
+
+        // Funciones de autenticación
+        async function handleLogin(event) {
+            event.preventDefault();
+            
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+
+            console.log('Intentando login con:', { email });
+
+            setLoading('loginButton', true);
+
+            try {
+                // Autenticación con Supabase
+                const { data, error } = await supabase.auth.signInWithPassword({
+                    email: email,
+                    password: password
+                });
+
+                if (error) throw error;
+
+                // No es necesario guardar la sesión en localStorage de esta manera, Supabase JS SDK lo maneja
+                // La redirección o manejo de UI debe ocurrir aquí
+
+                showAlert('Success', 'Inicio de sesión exitoso!', 'login');
+
+                 // Redirigir después de un pequeño retraso para que el usuario vea el mensaje de éxito
+                 setTimeout(() => {
+                     window.location.href = 'index.html';
+                 }, 1000);
+
+
+            } catch (error) {
+                console.error('Error en login:', error);
+                showAlert('Error', error.message || 'Error al iniciar sesión. Por favor, intenta nuevamente.', 'login');
+            } finally {
+                setLoading('loginButton', false);
+            }
+        }
+
+        async function handleRegister(event) {
+            event.preventDefault();
+
+            const name = document.getElementById('registerName').value;
+            const email = document.getElementById('registerEmail').value;
+            const password = document.getElementById('registerPassword').value;
+
+            showLoading('Registrando usuario...'); // Usar showLoading importado si está disponible
+
+            try {
+                // 1. Registrar usuario en Supabase Auth
+                const { data: authData, error: authError } = await supabase.auth.signUp({
+                    email: email,
+                    password: password,
+                    options: {
+                        data: { // Metadata para el usuario de autenticación
+                            name: name
+                        }
+                    }
+                });
+
+                if (authError) throw authError;
+
+                const user = authData.user; // Usar authData.user para el usuario de autenticación
+
+                // 2. Insertar usuario data en public.users table
+                 if (user) {
+                    const { error: dbError } = await supabase
+                        .from('users')
+                        .insert([
+                            { id: user.id, name: name, email: email }
+                        ]);
+
+                    if (dbError) {
+                        console.error('Error inserting user into public.users:', dbError);
+                         // Considerar eliminar el usuario de auth si falla la inserción en la tabla users
+                         // await supabase.auth.admin.deleteUser(user.id); // Esto requiere la clave de servicio de Supabase, que no debe estar en el frontend
+                         // Una alternativa para el frontend es mostrar un error y pedir al usuario que intente de nuevo
+                         showAlert('Error', 'Error al guardar datos de usuario. Por favor, intenta registrarte nuevamente.', 'register');
+                         hideLoading(); // Asegurarse de ocultar el loading
+                         return; // Salir de la función si falla la inserción en la DB
+                    }
+                 }
+
+                showAlert('Success', '¡Registro exitoso! Por favor, inicia sesión.', 'register');
+                
+                // Esperar a que se muestre el mensaje de éxito
+                await new Promise(resolve => setTimeout(resolve, 1500));
+                
+                // Cambiar al formulario de login
+                toggleForms();
+                
+                // Limpiar el formulario de login
+                document.getElementById('loginEmail').value = email;
+                document.getElementById('loginPassword').value = '';
+
+            } catch (error) {
+                console.error('Error en registro:', error);
+                showAlert('Error', error.message || 'Error al registrar usuario. Por favor, intenta nuevamente.', 'register');
+            } finally {
+                hideLoading(); // Asegurarse de ocultar el loading
+            }
+             // No retornar false aquí para permitir que el formulario se envíe y se maneje con async/await
+        }
+
+        // Función para alternar formularios (asumiendo que existe esta función)
+        function toggleForms() {
+            const loginForm = document.getElementById('loginForm');
+            const registerForm = document.getElementById('registerForm');
+            if (loginForm.classList.contains('active')) {
+                loginForm.classList.remove('active');
+                registerForm.classList.add('active');
+            } else {
+                registerForm.classList.remove('active');
+                loginForm.classList.add('active');
+            }
+        }
+
+         // Función para mostrar alerta (asumiendo que existe esta función)
+        function showAlert(type, message, formId) {
+            const alertElement = document.getElementById(`${formId}${type}`);
+            if (alertElement) {
+                alertElement.textContent = message;
+                alertElement.style.display = 'block';
+                setTimeout(() => {
+                    alertElement.style.display = 'none';
+                }, 5000);
+            }
+        }
+
+         // Función para mostrar/ocultar loading en botones (asumiendo que existe esta función)
+        function setLoading(buttonId, isLoading) {
+            const button = document.getElementById(buttonId);
+            if (button) {
+                if (isLoading) {
+                    button.classList.add('loading');
+                    button.disabled = true;
+                } else {
+                    button.classList.remove('loading');
+                    button.disabled = false;
+                }
+            }
+        }
+
+        // Exponer funciones globales para onclick en HTML
+        window.handleLogin = handleLogin;
+        window.handleRegister = handleRegister;
+        window.toggleForms = toggleForms;
+        // Si showLoading y hideLoading están definidas en utils.js y se importan aquí, no necesitas exponerlas si solo se usan dentro de estas funciones
+        // Pero si se usan en onclick en el HTML, expónlas:
+        // window.showLoading = showLoading;
+        // window.hideLoading = hideLoading;
+
+        // Verificar si el usuario ya está logueado
+        window.addEventListener('load', async () => {
+             // Usar Supabase auth.getSession() en lugar de localStorage
+            const { data: { session }, error } = await supabase.auth.getSession();
+            if (session) {
+                 // Si hay una sesión activa, redirigir al index
+                window.location.href = 'index.html';
+            } else {
+                // Asegurarse de que el formulario de login esté activo por defecto si no hay sesión
+                 const loginForm = document.getElementById('loginForm');
+                 const registerForm = document.getElementById('registerForm');
+                 if (loginForm && registerForm) {
+                     loginForm.classList.add('active');
+                     registerForm.classList.remove('active');
+                 }
+            }
+        });
+
+        // No necesitas definir handleLogout aquí si ya está en navigation.js y se importa/expone
+        // Pero si este es el único lugar donde se usa, puedes dejarla aquí y exponerla
+        // window.handleLogout = async () => { ... };
+
     </script>
     <style>
         * {
@@ -308,133 +485,6 @@
                 button.classList.remove('loading');
                 button.disabled = false;
             }
-        }
-
-        async function handleLogin(event) {
-            event.preventDefault();
-            
-            const email = document.getElementById('loginEmail').value;
-            const password = document.getElementById('loginPassword').value;
-
-            console.log('Intentando login con:', { email });
-
-            setLoading('loginButton', true);
-
-            try {
-                // Autenticación con Supabase
-                const { data, error } = await window.supabase.auth.signInWithPassword({
-                    email: email,
-                    password: password
-                });
-
-                if (error) throw error;
-
-                // Guardar sesión en localStorage
-                const userSession = {
-                    id: data.user.id,
-                    email: data.user.email,
-                    isLoggedIn: true
-                };
-
-                // Intentar obtener el perfil del usuario
-                try {
-                    const { data: userData, error: userError } = await window.supabase
-                        .from('profiles')
-                        .select('*')
-                        .eq('id', data.user.id)
-                        .single();
-
-                    if (!userError && userData) {
-                        userSession.name = userData.name;
-                    }
-                } catch (profileError) {
-                    console.log('No se pudo obtener el perfil del usuario:', profileError);
-                    // Continuar sin el perfil
-                }
-
-                localStorage.setItem('currentUser', JSON.stringify(userSession));
-                
-                showAlert('Success', '¡Inicio de sesión exitoso!', 'login');
-                
-                // Esperar a que se muestre el mensaje de éxito
-                await new Promise(resolve => setTimeout(resolve, 1500));
-                
-                // Redirigir al index
-                window.location.href = 'index.html';
-            } catch (error) {
-                console.error('Error en login:', error);
-                showAlert('Error', error.message || 'Error al iniciar sesión. Por favor, verifica tus credenciales.', 'login');
-            } finally {
-                setLoading('loginButton', false);
-            }
-
-            return false;
-        }
-
-        async function handleRegister(event) {
-            event.preventDefault();
-            
-            const name = document.getElementById('registerName').value;
-            const email = document.getElementById('registerEmail').value;
-            const password = document.getElementById('registerPassword').value;
-            const confirmPassword = document.getElementById('registerConfirmPassword').value;
-
-            if (password !== confirmPassword) {
-                showAlert('Error', 'Las contraseñas no coinciden.', 'register');
-                return false;
-            }
-
-            setLoading('registerButton', true);
-
-            try {
-                // Registrar usuario en Supabase Auth
-                const { data: authData, error: authError } = await window.supabase.auth.signUp({
-                    email: email,
-                    password: password
-                });
-
-                if (authError) throw authError;
-
-                // Intentar crear el perfil del usuario
-                try {
-                    const { error: profileError } = await window.supabase
-                        .from('profiles')
-                        .insert([
-                            {
-                                id: authData.user.id,
-                                name: name,
-                                email: email
-                            }
-                        ]);
-
-                    if (profileError) {
-                        console.log('No se pudo crear el perfil:', profileError);
-                        // Continuar sin crear el perfil
-                    }
-                } catch (profileError) {
-                    console.log('Error al crear el perfil:', profileError);
-                    // Continuar sin crear el perfil
-                }
-                
-                showAlert('Success', '¡Registro exitoso! Por favor, inicia sesión.', 'register');
-                
-                // Esperar a que se muestre el mensaje de éxito
-                await new Promise(resolve => setTimeout(resolve, 1500));
-                
-                // Cambiar al formulario de login
-                toggleForms();
-                
-                // Limpiar el formulario de login
-                document.getElementById('loginEmail').value = email;
-                document.getElementById('loginPassword').value = '';
-            } catch (error) {
-                console.error('Error en registro:', error);
-                showAlert('Error', error.message || 'Error al registrar usuario. Por favor, intenta nuevamente.', 'register');
-            } finally {
-                setLoading('registerButton', false);
-            }
-
-            return false;
         }
 
         // Verificar si el usuario ya está logueado
