@@ -166,11 +166,19 @@ async function viewEventDetails(eventId) {
             console.error('Modal de detalles del evento no encontrado.');
             return;
         }
+
+        // Cerrar cualquier modal existente antes de abrir uno nuevo
+        const existingModal = bootstrap.Modal.getInstance(eventDetailsModalEl);
+        if (existingModal) {
+            existingModal.hide();
+        }
+
+        // Crear una nueva instancia del modal
         const modal = new bootstrap.Modal(eventDetailsModalEl);
 
         const modalBody = document.getElementById('eventDetails');
         
-         // Usar directamente la URL de la base de datos
+        // Usar directamente la URL de la base de datos
         modalBody.innerHTML = `
             <div class="event-details">
                 ${event.image_url ? `
@@ -186,7 +194,7 @@ async function viewEventDetails(eventId) {
                     <div id="commentsList" class="mb-3">
                         ${event.comments ? event.comments.map(comment => `
                             <div class="comment mb-2" style="border-left: 4px solid ${getUserColor(comment.user_id)}; padding-left: 10px;">
-                                <strong>${comment.users ? comment.users.name : 'Usuario Desconocido'}:</strong> <!-- Muestra el nombre del usuario -->
+                                <strong>${comment.users ? comment.users.name : 'Usuario Desconocido'}:</strong>
                                 <p class="mb-1">${comment.comment}</p>
                             </div>
                         `).join('') : ''}
@@ -200,6 +208,12 @@ async function viewEventDetails(eventId) {
                 </div>
             </div>
         `;
+        
+        // Agregar event listener para el cierre del modal
+        eventDetailsModalEl.addEventListener('hidden.bs.modal', function () {
+            // Limpiar el contenido del modal cuando se cierra
+            modalBody.innerHTML = '';
+        }, { once: true }); // Usar once: true para que el listener se ejecute solo una vez
         
         modal.show();
     } catch (error) {
