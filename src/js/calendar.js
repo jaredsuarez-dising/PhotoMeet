@@ -1,31 +1,25 @@
+import supabase from './supabaseClient';
+import { checkAuthStatus } from './auth';
+import './auth'; // Import auth.js to run the onAuthStateChange listener
+import { viewEvent } from './eventDetailsModal'; // Import the viewEvent function
+
 import { Calendar } from '@fullcalendar/core';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import listPlugin from '@fullcalendar/list';
 import interactionPlugin from '@fullcalendar/interaction';
-import { createClient } from '@supabase/supabase-js';
-
-// Initialize Supabase
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseKey = import.meta.env.VITE_SUPABASE_KEY;
-const supabase = createClient(supabaseUrl, supabaseKey);
 
 // DOM Elements
 const calendarEl = document.getElementById('calendar');
 // Assuming you have a modal or section to display event details
 const eventDetailsModal = document.getElementById('eventDetailsModal'); // Example modal ID
 
-// Auth DOM Elements
-const loginBtn = document.getElementById('loginBtn');
-const registerBtn = document.getElementById('registerBtn');
-const userMenu = document.getElementById('userMenu');
-
 // Initialize Calendar and check auth status on page load
 document.addEventListener('DOMContentLoaded', () => {
-    // Hide auth elements initially to prevent flicker
-    if (loginBtn) loginBtn.style.display = 'none';
-    if (registerBtn) registerBtn.style.display = 'none';
-    if (userMenu) userMenu.style.display = 'none';
+    // Hide auth elements initially to prevent flicker (auth.js will handle showing based on status)
+    // if (loginBtn) loginBtn.style.display = 'none'; // Handled by auth.js
+    // if (registerBtn) registerBtn.style.display = 'none'; // Handled by auth.js
+    // if (userMenu) userMenu.style.display = 'none'; // Handled by auth.js
 
     // Initialize FullCalendar
     const calendar = new Calendar(calendarEl, {
@@ -37,7 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
             right: 'dayGridMonth,timeGridWeek,listWeek'
         },
         eventClick: function(info) {
-            handleEventClick(info.event);
+            viewEvent(info.event.id); // Use the imported function
         },
         events: async function(fetchInfo, successCallback, failureCallback) {
             try {
@@ -50,7 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     calendar.render();
 
-    checkAuthStatus(); // Add this line
+    checkAuthStatus(); // Use the centralized function
 
     // View buttons
     document.getElementById('monthView').addEventListener('click', () => {
@@ -66,101 +60,43 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-// Check authentication status
-async function checkAuthStatus() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-        showUserMenu(user);
-    } else {
-        showAuthButtons();
-    }
-}
-
-// Show user menu when logged in
-function showUserMenu(user) {
-    if (loginBtn) loginBtn.style.display = 'none';
-    if (registerBtn) registerBtn.style.display = 'none';
-    
-    if (userMenu) {
-        userMenu.style.display = 'block';
-        userMenu.innerHTML = `
-            <div class="dropdown">
-                <button class="btn btn-outline-light dropdown-toggle" type="button" data-bs-toggle="dropdown">
-                    ${user.email}
-                </button>
-                <ul class="dropdown-menu">
-                    <li><a class="dropdown-item" href="#" onclick="logout()">Cerrar Sesión</a></li>
-                </ul>
-            </div>
-        `;
-    }
-}
-
-// Show auth buttons when logged out
-function showAuthButtons() {
-    if (loginBtn) loginBtn.style.display = 'block';
-    if (registerBtn) registerBtn.style.display = 'block';
-    if (userMenu) userMenu.style.display = 'none';
-}
-
-// Handle logout
-window.logout = async () => {
-    try {
-        const { error } = await supabase.auth.signOut();
-        if (error) throw error;
-        
-        checkAuthStatus();
-        alert('Sesión cerrada correctamente');
-    } catch (error) {
-        alert('Error al cerrar sesión: ' + error.message);
-    }
-};
-
 // Function to load events from Supabase for the calendar
 async function loadEvents(start, end) {
     try {
+        console.log('Cargando eventos para el rango:', start, 'a', end);
+        
+        // Convert Date objects to ISO 8601 strings for Supabase filters
+        const startISO = start.toISOString();
+        const endISO = end.toISOString();
+
+        console.log('Rango de fechas en formato ISO:', startISO, 'a', endISO);
+
         const { data: events, error } = await supabase
             .from('events')
             .select('*, users(name)')
-            .gte('date', start)
-            .lte('date', end);
+            .gte('date', startISO) // Use ISO string
+            .lte('date', endISO);   // Use ISO string
 
         if (error) throw error;
+
+        console.log('Eventos recuperados de Supabase:', events);
 
         const formattedEvents = events.map(event => ({
             id: event.id,
             title: event.title,
-            start: event.date,
+            start: event.date, // Supabase usually returns ISO string, which is fine for FullCalendar
             description: event.description,
             location: event.location,
             image_url: event.image_url
         }));
+
+        console.log('Eventos formateados para FullCalendar:', formattedEvents);
 
         return formattedEvents;
     } catch (error) {
         console.error('Error loading events:', error);
         return [];
     }
-}
-
-// Function to handle event click
-function handleEventClick(event) {
-    const modal = new bootstrap.Modal(document.getElementById('eventDetailsModal'));
-    
-    document.getElementById('eventDetails').innerHTML = `
-        <div class="text-center mb-4">
-            <img src="${event.extendedProps.image_url}" class="img-fluid rounded" alt="${event.title}">
-        </div>
-        <h4>${event.title}</h4>
-        <p class="text-muted">
-            <i class="fas fa-calendar"></i> ${formatDate(event.start)}
-            <br>
-            <i class="fas fa-map-marker-alt"></i> ${event.extendedProps.location}
-        </p>
-        <p>${event.extendedProps.description}</p>
-    `;
-
-    modal.show();
 }
 
 // Function to load upcoming events (if used elsewhere on the page)
@@ -204,5 +140,5 @@ function getEventColor(eventType) {
 // AOS Initialization (if used on this page)
 // AOS.init();
 
-// Load upcoming events when the page loads
+// Load upcoming events when the page loads (Keep if needed on this page)
 document.addEventListener('DOMContentLoaded', loadUpcomingEvents); 
