@@ -3,7 +3,7 @@ create extension if not exists "uuid-ossp";
 
 -- Create users table
 create table users (
-    id serial primary key,
+    id uuid primary key references auth.users(id),
     name varchar(100),
     email varchar(100)
 );
@@ -16,14 +16,14 @@ create table events (
     date date not null,
     location varchar(100),
     image_url varchar(200),
-    user_id integer references users(id)
+    user_id uuid references users(id)
 );
 
 -- Create comments table
 create table comments (
     id serial primary key,
     event_id integer references events(id),
-    user_id integer references users(id),
+    user_id uuid references users(id),
     comment text
 );
 
@@ -44,6 +44,11 @@ create policy "Authenticated users can create everything"
     on public.events for insert with check (auth.role() = 'authenticated');
 create policy "Authenticated users can create everything"
     on public.comments for insert with check (auth.role() = 'authenticated');
+
+-- Allow users to insert their own profile
+create policy "Users can insert their own profile"
+    on public.users for insert
+    with check (auth.uid() = id);
 
 -- Simple trigger for new users
 create or replace function public.handle_new_user()

@@ -192,12 +192,7 @@ async function viewEventDetails(eventId) {
                 <div class="comments-section mt-4">
                     <h5>Comentarios</h5>
                     <div id="commentsList" class="mb-3">
-                        ${event.comments ? event.comments.map(comment => `
-                            <div class="comment mb-2" style="border-left: 4px solid ${getUserColor(comment.user_id)}; padding-left: 10px;">
-                                <strong>${comment.users ? comment.users.name : 'Usuario Desconocido'}:</strong>
-                                <p class="mb-1">${comment.comment}</p>
-                            </div>
-                        `).join('') : ''}
+                        <!-- Los comentarios se cargarán aquí -->
                     </div>
                     <form id="commentForm" onsubmit="addComment(event, '${eventId}')">
                         <div class="mb-3">
@@ -209,6 +204,9 @@ async function viewEventDetails(eventId) {
             </div>
         `;
         
+        // Cargar y mostrar comentarios después de que el HTML base esté en el DOM
+        await loadAndDisplayComments(eventId);
+        
         // Agregar event listener para el cierre del modal
         eventDetailsModalEl.addEventListener('hidden.bs.modal', function () {
             // Limpiar el contenido del modal cuando se cierra
@@ -219,6 +217,39 @@ async function viewEventDetails(eventId) {
     } catch (error) {
         console.error('Error al cargar detalles del evento:', error);
         alert('Error al cargar los detalles del evento');
+    }
+}
+
+// Nueva función para cargar y mostrar solo los comentarios
+async function loadAndDisplayComments(eventId) {
+    const commentsListEl = document.getElementById('commentsList');
+    if (!commentsListEl) return; // Salir si el contenedor no existe
+
+    try {
+        // Obtener solo los comentarios con el nombre del usuario asociado
+        const { data: comments, error } = await window.supabase
+            .from('comments')
+            .select('*, users(name)') // Selecciona el nombre del usuario relacionado
+            .eq('event_id', eventId)
+            .order('id', { ascending: true }); // O usar 'created_at' si existe
+
+        if (error) throw error;
+
+        // Renderizar los comentarios
+        if (comments && comments.length > 0) {
+            commentsListEl.innerHTML = comments.map(comment => `
+                <div class="comment mb-2" style="border-left: 4px solid ${getUserColor(comment.user_id)}; padding-left: 10px;">
+                    <strong>${comment.users ? comment.users.name : 'Usuario Desconocido'}:</strong>
+                    <p class="mb-1">${comment.comment}</p>
+                </div>
+            `).join('');
+        } else {
+            commentsListEl.innerHTML = '<p class="text-muted">No hay comentarios aún. ¡Sé el primero en comentar!</p>';
+        }
+
+    } catch (error) {
+        console.error('Error al cargar y mostrar comentarios:', error);
+        commentsListEl.innerHTML = '<p class="text-danger">Error al cargar comentarios.</p>';
     }
 }
 
@@ -236,6 +267,7 @@ async function addComment(event, eventId) {
     }
 
     try {
+        // Insertar el comentario
         const { error } = await window.supabase
             .from('comments')
             .insert([{
@@ -246,8 +278,15 @@ async function addComment(event, eventId) {
 
         if (error) throw error;
 
+        // Limpiar el formulario de comentario
         document.getElementById('commentContent').value = '';
-        viewEventDetails(eventId);
+
+        // Recargar solo la sección de comentarios
+        await loadAndDisplayComments(eventId);
+
+        // Opcional: mostrar un pequeño mensaje de éxito temporal si no es intrusivo
+        // showToast('Comentario agregado', 'success'); // Asegúrate de tener showToast disponible si lo usas
+
     } catch (error) {
         console.error('Error al agregar comentario:', error);
         alert('Error al agregar el comentario');

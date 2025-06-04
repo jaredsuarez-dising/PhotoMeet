@@ -65,36 +65,60 @@ async function handleRegister(event) {
 
         if (authError) throw authError;
 
-        const user = authData.user; 
+        // Después de un registro exitoso, obtener la sesión para asegurar que auth.uid() esté disponible
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+        if (sessionError) throw sessionError;
+
+        const user = session?.user; // Usar el usuario de la sesión activa
+
+        // Añadir un pequeño retardo para dar tiempo a Supabase a establecer el contexto de auth.uid()
+        // para la política RLS antes de intentar la inserción en la tabla users.
+        await new Promise(resolve => setTimeout(resolve, 100)); // Retardo de 100ms (ajustable si es necesario)
 
         // 2. Insert user data into public.users table
+        // Esta inserción solo funcionará si el auth.uid() del usuario que realiza la solicitud
+        // coincide con el 'id' que se está insertando, debido a la política RLS "Users can insert their own profile".
         if (user) {
             const { error: dbError } = await supabase
                 .from('users')
                 .insert([
-                    { id: user.id, name: name, email: email }
+                    { id: user.id, name: name, email: email } // Usar el ID del usuario de la sesión
                 ]);
 
             if (dbError) {
                 console.error('Error inserting user into public.users:', dbError);
-                showAlert('Error', 'Error al guardar datos de usuario. Por favor, intenta registrarte nuevamente.', 'register');
+                // Si el error es RLS (42501), indica que el auth.uid() no coincidió o no estaba disponible.
+                // La política RLS está configurada para permitir la inserción si auth.uid() == id.
+                // Si este error persiste, puede haber un problema de propagación o configuración en Supabase.
+                // Mostrar un mensaje que indica que el registro Auth fue exitoso pero hubo un problema con el perfil.
+                showAlert('Error', 'Registro exitoso, pero hubo un problema al guardar tu perfil. Por favor, intenta iniciar sesión.', 'register');
                 hideLoading();
+                // No hacemos un return aquí para que continúe y muestre el mensaje de éxito general si auth.signUp fue exitoso.
+                 // Sin embargo, esto puede ser confuso. Es mejor detenerse si la inserción del perfil falla.
+                 // Revertiré el cambio de no hacer return.
                 return; // Exit if DB insert fails
+            } else {
+                 // Inserción en public.users exitosa
+                 showAlert('Success', '¡Registro exitoso! Por favor, inicia sesión.', 'register');
+
+                 setTimeout(() => {
+                      // Switch to login form after successful registration and delay
+                     toggleForms();
+                     // Clear register form and pre-fill login email
+                     document.getElementById('registerForm').reset();
+                     document.getElementById('loginEmail').value = email;
+                     document.getElementById('loginPassword').value = ''; // Keep password field empty for security
+
+                 }, 1500); // Short delay to show success message
             }
+        } else {
+             // Esto podría ocurrir si signUp no inicia sesión automáticamente y getSession no encuentra una.
+             console.error('Registro exitoso en Auth, pero no se pudo obtener la sesión para insertar en users.');
+             showAlert('Error', 'Registro exitoso, confirma tu correo electrónico para iniciar sesión.', 'register');
+             hideLoading();
+             return;
         }
-
-        showAlert('Success', '¡Registro exitoso! Por favor, inicia sesión.', 'register');
-        
-        setTimeout(() => {
-             // Switch to login form after successful registration and delay
-            toggleForms();
-            // Clear register form and pre-fill login email
-            document.getElementById('registerForm').reset();
-            document.getElementById('loginEmail').value = email;
-            document.getElementById('loginPassword').value = ''; // Keep password field empty for security
-
-        }, 1500); // Short delay to show success message
-
 
     } catch (error) {
         console.error('Registration error:', error);
