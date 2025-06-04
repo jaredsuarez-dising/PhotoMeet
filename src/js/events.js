@@ -1,7 +1,7 @@
 import supabase from './supabaseClient';
 import { checkAuthStatus } from './auth';
 import './auth'; // Import auth.js to run the onAuthStateChange listener
-import { formatDate } from './utils'; // Import the utility function
+import { formatDate, showLoading, hideLoading, showToast, debounceButton } from './utils';
 
 // DOM Elements
 const eventsList = document.getElementById('eventsList');
@@ -18,9 +18,13 @@ const registerBtn = document.getElementById('registerBtn');
 const userMenu = document.getElementById('userMenu');
 
 // Event Listeners
-searchBtn.addEventListener('click', handleSearch);
-filterForm.addEventListener('submit', handleFilter);
-submitEventBtn.addEventListener('click', handleCreateEvent);
+if (searchBtn) {
+    debounceButton(searchBtn, handleSearch);
+}
+
+if (submitEventBtn) {
+    debounceButton(submitEventBtn, handleCreateEvent);
+}
 
 // Load events when the page loads
 document.addEventListener('DOMContentLoaded', () => {
@@ -70,9 +74,7 @@ async function loadEvents(filters = {}) {
 // Display events in the list
 function displayEvents(events) {
     eventsList.innerHTML = events.map(event => {
-        const imageUrl = event.image_url ? 
-            `https://yqtsrbtgfpbkrnrcwnnf.supabase.co/storage/v1/object/public/event-images/${event.image_url}` : 
-            '[URL_IMAGEN_POR_DEFECTO]';
+        const imageUrl = event.image_url || 'https://via.placeholder.com/300x200?text=No+Image';
 
         return `
         <div class="col-md-6 col-lg-4 mb-4">
@@ -95,9 +97,24 @@ function displayEvents(events) {
 }
 
 // Handle search
-function handleSearch() {
-    const searchTerm = searchInput.value.trim();
-    loadEvents({ search: searchTerm });
+async function handleSearch() {
+    const searchTerm = searchInput.value.toLowerCase();
+    showLoading('Buscando eventos...');
+    try {
+        const { data: events, error } = await supabase
+            .from('events')
+            .select('*')
+            .or(`title.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%`);
+
+        if (error) throw error;
+
+        displayEvents(events);
+    } catch (error) {
+        console.error('Error searching events:', error);
+        showToast('Error al buscar eventos', 'error');
+    } finally {
+        hideLoading();
+    }
 }
 
 // Handle filters
@@ -123,11 +140,13 @@ async function handleCreateEvent() {
         const location = formData.get('location');
 
         if (!title || !description || !date || !location) {
-            alert('Por favor, complete todos los campos requeridos del formulario.');
+            showToast('Por favor, complete todos los campos requeridos del formulario.', 'error');
             console.log('Campos requeridos faltantes');
             return;
         }
         console.log('Campos requeridos validados');
+
+        showLoading('Creando evento...');
 
         let imageUrl = null;
         const imageFile = formData.get('image');
@@ -136,21 +155,20 @@ async function handleCreateEvent() {
         // Only upload image if one was provided
         if (imageFile && imageFile.name) {
             console.log('ImageFile presente, intentando subir imagen');
+            const filePath = `${Date.now()}-${imageFile.name}`;
             const { data: imageData, error: imageError } = await supabase.storage
                 .from('event-images')
-                .upload(`${Date.now()}-${imageFile.name}`, imageFile);
+                .upload(filePath, imageFile);
 
             if (imageError) throw imageError;
 
             // Get the public URL after successful upload
-            const { data: publicUrlData } = supabase.storage
+            const { data: { publicUrl } } = supabase.storage
                 .from('event-images')
-                .getPublicUrl(imageData.path);
+                .getPublicUrl(filePath);
 
-            console.log('Resultado de getPublicUrl:', publicUrlData);
-
-            imageUrl = publicUrlData.publicUrl;
-            console.log('Imagen subida, URL pública:', imageUrl);
+            console.log('URL pública de la imagen:', publicUrl);
+            imageUrl = publicUrl;
         }
 
         console.log('Antes de obtener usuario autenticado');
@@ -160,11 +178,11 @@ async function handleCreateEvent() {
 
         if (userError) {
             console.error('Error getting user:', userError);
-            alert('Error getting user: ' + userError.message);
+            showToast('Error al obtener usuario: ' + userError.message, 'error');
             return;
         }
         if (!user) {
-            alert('Error: User not authenticated.');
+            showToast('Error: Usuario no autenticado.', 'error');
             console.log('Usuario no autenticado, retornando');
             return;
         }
@@ -186,14 +204,16 @@ async function handleCreateEvent() {
 
         if (error) throw error;
 
-        alert('Evento creado correctamente');
+        showToast('Evento creado correctamente');
         bootstrap.Modal.getInstance(document.getElementById('createEventModal')).hide();
         form.reset(); // Reset the form after successful creation
         loadEvents(); // Reload events after creation
 
     } catch (error) {
         console.error('Error creating event:', error);
-        alert('Error al crear el evento: ' + error.message);
+        showToast('Error al crear el evento: ' + error.message, 'error');
+    } finally {
+        hideLoading();
     }
 }
 

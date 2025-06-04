@@ -1,6 +1,7 @@
 import supabase from './supabaseClient';
 import { checkAuthStatus } from './auth';
 import './auth'; // Import auth.js to run the onAuthStateChange listener
+import { showLoading, hideLoading, showToast, debounceButton } from './utils';
 
 // DOM Elements
 const loginBtn = document.getElementById('loginBtn');
@@ -8,6 +9,8 @@ const registerBtn = document.getElementById('registerBtn');
 const userMenu = document.getElementById('userMenu');
 const loginForm = document.getElementById('loginForm');
 const registerForm = document.getElementById('registerForm');
+const loginSubmitBtn = document.getElementById('loginSubmitBtn');
+const registerSubmitBtn = document.getElementById('registerSubmitBtn');
 const featuredEvents = document.getElementById('featuredEvents');
 
 // Modal instances
@@ -19,57 +22,6 @@ document.addEventListener('DOMContentLoaded', () => {
     checkAuthStatus();
     loadFeaturedEvents();
 });
-
-// Load featured events
-async function loadFeaturedEvents() {
-    try {
-        const { data: events, error } = await supabase
-            .from('events')
-            .select('*, users(name)')
-            .gte('date', new Date().toISOString())
-            .order('date', { ascending: true })
-            .limit(3);
-
-        if (error) throw error;
-
-        displayFeaturedEvents(events);
-    } catch (error) {
-        console.error('Error loading featured events:', error);
-        featuredEvents.innerHTML = '<div class="col-12 text-center">Error al cargar los eventos destacados</div>';
-    }
-}
-
-// Display featured events
-function displayFeaturedEvents(events) {
-    if (events.length === 0) {
-        featuredEvents.innerHTML = '<div class="col-12 text-center">No hay eventos destacados</div>';
-        return;
-    }
-
-    featuredEvents.innerHTML = events.map(event => {
-        const imageUrl = event.image_url ? 
-            `https://yqtsrbtgfpbkrnrcwnnf.supabase.co/storage/v1/object/public/event-images/${event.image_url}` : 
-            '[URL_IMAGEN_POR_DEFECTO]'; // Replace with a default image URL if needed
-
-        return `
-        <div class="col-md-4 mb-4">
-            <div class="card event-card h-100">
-                <img src="${imageUrl}" class="card-img-top" alt="${event.title}">
-                <div class="card-body">
-                    <h5 class="card-title">${event.title}</h5>
-                    <p class="card-text">${event.description}</p>
-                    <div class="d-flex justify-content-between align-items-center">
-                        <small class="text-muted">${formatDate(event.date)}</small>
-                        <button class="btn btn-primary btn-sm" onclick="viewEvent(${event.id})">
-                            Ver Detalles
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-    }).join('');
-}
 
 // Handle login button click
 if (loginBtn) {
@@ -85,14 +37,15 @@ if (registerBtn) {
     });
 }
 
-// Handle login form submission
-if (loginForm) {
-    loginForm.addEventListener('submit', async (e) => {
+// Handle login form submission with debounce
+if (loginSubmitBtn) {
+    debounceButton(loginSubmitBtn, async (e) => {
         e.preventDefault();
         
         const email = document.getElementById('loginEmail').value;
         const password = document.getElementById('loginPassword').value;
 
+        showLoading('Iniciando sesión...');
         try {
             const { data, error } = await supabase.auth.signInWithPassword({
                 email,
@@ -102,23 +55,26 @@ if (loginForm) {
             if (error) throw error;
 
             loginModal.hide();
+            showToast('Inicio de sesión exitoso');
             // checkAuthStatus is handled by auth.js listener
-            alert('Inicio de sesión exitoso');
         } catch (error) {
-            alert('Error al iniciar sesión: ' + error.message);
+            showToast(error.message, 'error');
+        } finally {
+            hideLoading();
         }
     });
 }
 
-// Handle register form submission
-if (registerForm) {
-    registerForm.addEventListener('submit', async (e) => {
+// Handle register form submission with debounce
+if (registerSubmitBtn) {
+    debounceButton(registerSubmitBtn, async (e) => {
         e.preventDefault();
 
         const name = document.getElementById('registerName').value;
         const email = document.getElementById('registerEmail').value;
         const password = document.getElementById('registerPassword').value;
 
+        showLoading('Registrando usuario...');
         try {
             // 1. Register user with Supabase Auth
             const { data, error: authError } = await supabase.auth.signUp({
@@ -144,25 +100,59 @@ if (registerForm) {
                     ]);
 
                 if (dbError) {
-                    // Log the error but allow auth registration to proceed
                     console.error('Error inserting user into public.users:', dbError);
-                    // Optionally, you might want to alert the user or handle this case differently
-                    // alert('Registro de autenticación exitoso, pero hubo un error al guardar información adicional.');
                 }
             }
 
             registerModal.hide();
             // Check if email confirmation is required by Supabase settings
             if (user && user.identities && !user.identities.some(identity => identity.provider === 'email' && identity.identity_data.email_verified)) {
-                 alert('Registro exitoso. Por favor verifica tu email antes de iniciar sesión.');
+                showToast('Registro exitoso. Por favor verifica tu email antes de iniciar sesión.');
             } else {
-                 alert('Registro exitoso.');
+                showToast('Registro exitoso.');
             }
 
         } catch (error) {
-            alert('Error al registrarse: ' + error.message);
+            showToast(error.message, 'error');
+        } finally {
+            hideLoading();
         }
     });
+}
+
+// Load featured events
+async function loadFeaturedEvents() {
+    if (!featuredEvents) return;
+
+    showLoading('Cargando eventos destacados...');
+    try {
+        const { data: events, error } = await supabase
+            .from('events')
+            .select('*')
+            .gte('date', new Date().toISOString())
+            .order('date', { ascending: true })
+            .limit(3);
+
+        if (error) throw error;
+
+        featuredEvents.innerHTML = events.map(event => `
+            <div class="col-md-4">
+                <div class="card h-100">
+                    ${event.image_url ? `<img src="${event.image_url}" class="card-img-top" alt="${event.title}">` : ''}
+                    <div class="card-body">
+                        <h5 class="card-title">${event.title}</h5>
+                        <p class="card-text">${event.description}</p>
+                        <p class="card-text"><small class="text-muted">${formatDate(event.date)}</small></p>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    } catch (error) {
+        console.error('Error loading featured events:', error);
+        showToast('Error al cargar eventos destacados', 'error');
+    } finally {
+        hideLoading();
+    }
 }
 
 // Helper function to format dates

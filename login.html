@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login y Registro</title>
+    <script type="module">
+        import supabase from '/src/js/supabaseClient.js';
+        window.supabase = supabase;
+    </script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f5f5f5;
+            position: relative;
+        }
+
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url('https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80') center/cover no-repeat;
+            opacity: 0.1;
+            z-index: -1;
+        }
+
+        .container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
+            padding: 40px;
+            width: 400px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 5px;
+            background: #2c3e50;
+        }
+
+        .form-container {
+            position: relative;
+        }
+
+        .form-container form {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .form-container h2 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 30px;
+            font-weight: 600;
+        }
+
+        .input-group {
+            position: relative;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            outline: none;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            background: #f8f9fa;
+        }
+
+        .input-group input:focus {
+            border-color: #2c3e50;
+            background: white;
+            box-shadow: 0 0 0 3px rgba(44, 62, 80, 0.1);
+        }
+
+        .input-group label {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #666;
+            pointer-events: none;
+            transition: 0.3s;
+            background: transparent;
+        }
+
+        .input-group input:focus + label,
+        .input-group input:valid + label {
+            top: -10px;
+            left: 5px;
+            font-size: 14px;
+            background: white;
+            padding: 0 5px;
+            color: #2c3e50;
+            font-weight: 500;
+        }
+
+        button {
+            background: #2c3e50;
+            color: white;
+            padding: 14px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        button:hover {
+            background: #34495e;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(44, 62, 80, 0.2);
+        }
+
+        .toggle-form {
+            text-align: center;
+            margin-top: 20px;
+            color: #666;
+        }
+
+        .toggle-form a {
+            color: #2c3e50;
+            text-decoration: none;
+            cursor: pointer;
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+
+        .toggle-form a:hover {
+            color: #34495e;
+            text-decoration: underline;
+        }
+
+        #loginForm, #registerForm {
+            display: none;
+        }
+
+        #loginForm.active, #registerForm.active {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .alert {
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .alert-success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .loading {
+            position: relative;
+            pointer-events: none;
+        }
+
+        .loading::after {
+            content: '';
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            top: 50%;
+            left: 50%;
+            margin: -10px 0 0 -10px;
+            border: 3px solid #ffffff;
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: button-loading-spinner 1s linear infinite;
+        }
+
+        @keyframes button-loading-spinner {
+            from {
+                transform: rotate(0turn);
+            }
+            to {
+                transform: rotate(1turn);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="form-container">
+            <!-- Formulario de Login -->
+            <form id="loginForm" class="active" onsubmit="return handleLogin(event)">
+                <div class="alert alert-error" id="loginError"></div>
+                <div class="alert alert-success" id="loginSuccess"></div>
+                <h2>Iniciar Sesión</h2>
+                <div class="input-group">
+                    <input type="email" id="loginEmail" required>
+                    <label>Correo Electrónico</label>
+                </div>
+                <div class="input-group">
+                    <input type="password" id="loginPassword" required>
+                    <label>Contraseña</label>
+                </div>
+                <button type="submit" id="loginButton">Iniciar Sesión</button>
+                <div class="toggle-form">
+                    ¿No tienes cuenta? <a onclick="toggleForms()">Regístrate</a>
+                </div>
+            </form>
+
+            <!-- Formulario de Registro -->
+            <form id="registerForm" onsubmit="return handleRegister(event)">
+                <div class="alert alert-error" id="registerError"></div>
+                <div class="alert alert-success" id="registerSuccess"></div>
+                <h2>Registro</h2>
+                <div class="input-group">
+                    <input type="text" id="registerName" required>
+                    <label>Nombre Completo</label>
+                </div>
+                <div class="input-group">
+                    <input type="email" id="registerEmail" required>
+                    <label>Correo Electrónico</label>
+                </div>
+                <div class="input-group">
+                    <input type="password" id="registerPassword" required>
+                    <label>Contraseña</label>
+                </div>
+                <div class="input-group">
+                    <input type="password" id="registerConfirmPassword" required>
+                    <label>Confirmar Contraseña</label>
+                </div>
+                <button type="submit" id="registerButton">Registrarse</button>
+                <div class="toggle-form">
+                    ¿Ya tienes cuenta? <a onclick="toggleForms()">Inicia Sesión</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function toggleForms() {
+            const loginForm = document.getElementById('loginForm');
+            const registerForm = document.getElementById('registerForm');
+            
+            loginForm.classList.toggle('active');
+            registerForm.classList.toggle('active');
+
+            // Limpiar mensajes de error/éxito al cambiar de formulario
+            document.querySelectorAll('.alert').forEach(alert => {
+                alert.style.display = 'none';
+                alert.textContent = '';
+            });
+        }
+
+        function showAlert(type, message, formId) {
+            const alertElement = document.getElementById(`${formId}${type}`);
+            alertElement.textContent = message;
+            alertElement.style.display = 'block';
+            setTimeout(() => {
+                alertElement.style.display = 'none';
+            }, 5000);
+        }
+
+        function setLoading(buttonId, isLoading) {
+            const button = document.getElementById(buttonId);
+            if (isLoading) {
+                button.classList.add('loading');
+                button.disabled = true;
+            } else {
+                button.classList.remove('loading');
+                button.disabled = false;
+            }
+        }
+
+        async function handleLogin(event) {
+            event.preventDefault();
+            
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+
+            console.log('Intentando login con:', { email });
+
+            setLoading('loginButton', true);
+
+            try {
+                // Autenticación con Supabase
+                const { data, error } = await window.supabase.auth.signInWithPassword({
+                    email: email,
+                    password: password
+                });
+
+                if (error) throw error;
+
+                // Guardar sesión en localStorage
+                const userSession = {
+                    id: data.user.id,
+                    email: data.user.email,
+                    isLoggedIn: true
+                };
+
+                // Intentar obtener el perfil del usuario
+                try {
+                    const { data: userData, error: userError } = await window.supabase
+                        .from('profiles')
+                        .select('*')
+                        .eq('id', data.user.id)
+                        .single();
+
+                    if (!userError && userData) {
+                        userSession.name = userData.name;
+                    }
+                } catch (profileError) {
+                    console.log('No se pudo obtener el perfil del usuario:', profileError);
+                    // Continuar sin el perfil
+                }
+
+                localStorage.setItem('currentUser', JSON.stringify(userSession));
+                
+                showAlert('Success', '¡Inicio de sesión exitoso!', 'login');
+                
+                // Esperar a que se muestre el mensaje de éxito
+                await new Promise(resolve => setTimeout(resolve, 1500));
+                
+                // Redirigir al index
+                window.location.href = 'index.html';
+            } catch (error) {
+                console.error('Error en login:', error);
+                showAlert('Error', error.message || 'Error al iniciar sesión. Por favor, verifica tus credenciales.', 'login');
+            } finally {
+                setLoading('loginButton', false);
+            }
+
+            return false;
+        }
+
+        async function handleRegister(event) {
+            event.preventDefault();
+            
+            const name = document.getElementById('registerName').value;
+            const email = document.getElementById('registerEmail').value;
+            const password = document.getElementById('registerPassword').value;
+            const confirmPassword = document.getElementById('registerConfirmPassword').value;
+
+            if (password !== confirmPassword) {
+                showAlert('Error', 'Las contraseñas no coinciden.', 'register');
+                return false;
+            }
+
+            setLoading('registerButton', true);
+
+            try {
+                // Registrar usuario en Supabase Auth
+                const { data: authData, error: authError } = await window.supabase.auth.signUp({
+                    email: email,
+                    password: password
+                });
+
+                if (authError) throw authError;
+
+                // Intentar crear el perfil del usuario
+                try {
+                    const { error: profileError } = await window.supabase
+                        .from('profiles')
+                        .insert([
+                            {
+                                id: authData.user.id,
+                                name: name,
+                                email: email
+                            }
+                        ]);
+
+                    if (profileError) {
+                        console.log('No se pudo crear el perfil:', profileError);
+                        // Continuar sin crear el perfil
+                    }
+                } catch (profileError) {
+                    console.log('Error al crear el perfil:', profileError);
+                    // Continuar sin crear el perfil
+                }
+                
+                showAlert('Success', '¡Registro exitoso! Por favor, inicia sesión.', 'register');
+                
+                // Esperar a que se muestre el mensaje de éxito
+                await new Promise(resolve => setTimeout(resolve, 1500));
+                
+                // Cambiar al formulario de login
+                toggleForms();
+                
+                // Limpiar el formulario de login
+                document.getElementById('loginEmail').value = email;
+                document.getElementById('loginPassword').value = '';
+            } catch (error) {
+                console.error('Error en registro:', error);
+                showAlert('Error', error.message || 'Error al registrar usuario. Por favor, intenta nuevamente.', 'register');
+            } finally {
+                setLoading('registerButton', false);
+            }
+
+            return false;
+        }
+
+        // Verificar si el usuario ya está logueado
+        window.addEventListener('load', async () => {
+            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+            if (currentUser && currentUser.isLoggedIn) {
+                // Verificar si la sesión sigue siendo válida en Supabase
+                const { data: { session }, error } = await window.supabase.auth.getSession();
+                if (session) {
+                    window.location.href = 'index.html';
+                } else {
+                    // Si la sesión no es válida, limpiar localStorage
+                    localStorage.removeItem('currentUser');
+                }
+            }
+        });
+
+        // Función para cerrar sesión
+        async function handleLogout() {
+            try {
+                const { error } = await window.supabase.auth.signOut();
+                if (error) throw error;
+                
+                localStorage.removeItem('currentUser');
+                window.location.href = 'login.html';
+            } catch (error) {
+                console.error('Error al cerrar sesión:', error);
+            }
+        }
+    </script>
+</body>
+</html> 

@@ -1,160 +1,167 @@
 import supabase from './supabaseClient';
-import { formatDate } from './utils';
+import { showLoading, hideLoading, showToast, debounceButton } from './utils';
 
-// View event details - Logic for showing the modal and loading data
-export async function viewEvent(eventId) {
+// Make viewEvent function globally available
+window.viewEvent = async function(eventId) {
     console.log('viewEvent called for event ID:', eventId);
-    
-    // --- Reverting commenting out complex logic ---
+    showLoading('Cargando detalles del evento...');
+
     try {
-        // Select all details needed for the modal
-        const { data: event, error } = await supabase
+        // Get event details
+        const { data: event, error: eventError } = await supabase
             .from('events')
-            .select('*, users(name)') 
+            .select('*, users(name)')
             .eq('id', eventId)
             .single();
 
-        if (error) throw error;
+        if (eventError) throw eventError;
 
-        // Load comments - keeping as is for now, consider optimization if this is the bottleneck
+        // Get comments for this event
         const { data: comments, error: commentsError } = await supabase
             .from('comments')
             .select('*, users(name)')
             .eq('event_id', eventId)
-            .order('id', { ascending: false });
+            .order('created_at', { ascending: false });
 
         if (commentsError) throw commentsError;
 
-        // Show event details in modal
+        // Get the modal element
         const modalElement = document.getElementById('eventDetailsModal');
-        const detailsElement = document.getElementById('eventDetails'); // This was needed
-
-        if (!modalElement || !detailsElement) { // Revert to original check
-             console.error('Modal or details element not found!');
-             alert('Error: Elementos del modal de detalles no encontrados.');
-             return;
+        if (!modalElement) {
+            throw new Error('Modal element not found');
         }
 
+        // Create a new Bootstrap modal instance
         const modal = new bootstrap.Modal(modalElement);
-        console.log('Bootstrap Modal instance created:', modal);
-        
-        const imageUrl = event.image_url ? 
-            `https://yqtsrbtgfpbkrnrcwnnf.supabase.co/storage/v1/object/public/event-images/${event.image_url}` : 
-            '[URL_IMAGEN_POR_DEFECTO]'; // Replace with a default image URL if needed
 
+        // Update modal content
+        const detailsElement = modalElement.querySelector('#eventDetails');
+        if (!detailsElement) {
+            throw new Error('Event details element not found');
+        }
+
+        // Format the date
+        const eventDate = new Date(event.date).toLocaleDateString('es-ES', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+
+        // Update modal content with event details
         detailsElement.innerHTML = `
-            <div class="text-center mb-4">
-                <img src="${imageUrl}" class="img-fluid rounded" alt="${event.title}" loading="lazy">
+            <div class="event-header mb-4">
+                ${event.image_url ? `<img src="${event.image_url}" class="img-fluid rounded mb-3" alt="${event.title}">` : ''}
+                <h3>${event.title}</h3>
+                <p class="text-muted">${eventDate}</p>
+                <p><i class="fas fa-map-marker-alt"></i> ${event.location}</p>
             </div>
-            <h4>${event.title}</h4>
-            <p class="text-muted">
-                <i class="fas fa-calendar"></i> ${formatDate(event.date)}
-                <br>
-                <i class="fas fa-map-marker-alt"></i> ${event.location}
-                <br>
-            </p>
-            <p>${event.description}</p>
-            <hr>
-            <h5>Comentarios</h5>
-            <div class="comments-list">
-                ${comments.map(comment => `
-                    <div class="comment mb-3">
-                        <strong>${comment.users ? comment.users.name : 'Usuario desconocido'}</strong>
-                        <p>${comment.comment}</p>
-                    </div>
-                `).join('')}
+            <div class="event-description mb-4">
+                <h4>Descripción</h4>
+                <p>${event.description}</p>
             </div>
-            <form id="commentForm" class="mt-3">
-                <div class="mb-3">
-                    <textarea class="form-control" placeholder="Escribe un comentario..."></textarea>
+            <div class="event-comments">
+                <h4>Comentarios</h4>
+                <div id="commentsList">
+                    ${comments.map(comment => `
+                        <div class="comment mb-3">
+                            <strong>${comment.users.name}</strong>
+                            <p>${comment.comment}</p>
+                            <small class="text-muted">${new Date(comment.created_at).toLocaleString()}</small>
+                        </div>
+                    `).join('')}
                 </div>
-                <button type="submit" class="btn btn-primary">Comentar</button>
-            </form>
+                <form id="commentForm" class="mt-3">
+                    <div class="mb-3">
+                        <textarea class="form-control" rows="3" placeholder="Escribe un comentario..." required></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary" id="submitCommentBtn">Publicar Comentario</button>
+                </form>
+            </div>
         `;
 
-        // Handle comment submission
+        // Add comment form handler with debounce
         const commentForm = detailsElement.querySelector('#commentForm');
-        if (commentForm) {
-            commentForm.addEventListener('submit', async (e) => {
+        const submitCommentBtn = detailsElement.querySelector('#submitCommentBtn');
+
+        if (commentForm && submitCommentBtn) {
+            debounceButton(submitCommentBtn, async (e) => {
                 e.preventDefault();
-                const commentTextarea = e.target.querySelector('textarea');
+                const commentTextarea = commentForm.querySelector('textarea');
                 const comment = commentTextarea.value;
 
-                if (!comment.trim()) { // Simple validation
-                    alert('El comentario no puede estar vacío.');
+                if (!comment.trim()) {
+                    showToast('El comentario no puede estar vacío.', 'error');
                     return;
                 }
 
+                showLoading('Publicando comentario...');
                 try {
                     // Ensure user is authenticated before posting comment
-                     const { data: { user }, error: userError } = await supabase.auth.getUser();
-                     if (userError || !user) {
-                         alert('Debes iniciar sesión para comentar.');
-                         return;
-                     }
+                    const { data: { user }, error: userError } = await supabase.auth.getUser();
+                    if (userError || !user) {
+                        showToast('Debes iniciar sesión para comentar.', 'error');
+                        return;
+                    }
 
                     const { error } = await supabase
                         .from('comments')
                         .insert([{
                             event_id: eventId,
-                            user_id: user.id, // Use the obtained user ID
+                            user_id: user.id,
                             comment: comment
                         }]);
 
                     if (error) throw error;
 
-                    alert('Comentario publicado');
+                    showToast('Comentario publicado');
                     commentTextarea.value = ''; // Clear textarea
                     
-                    // Reload only the comments section instead of calling viewEvent again
-                    await reloadCommentsSection(eventId, detailsElement); 
+                    // Reload only the comments section
+                    await reloadCommentsSection(eventId, detailsElement);
 
                 } catch (error) {
                     console.error('Error posting comment:', error);
-                    alert('Error al publicar el comentario: ' + error.message);
+                    showToast('Error al publicar el comentario: ' + error.message, 'error');
+                } finally {
+                    hideLoading();
                 }
             });
         }
 
-        modal.show(); // Attempt to show the modal
+        modal.show();
 
-    } catch (error) { // Reverting catch block
+    } catch (error) {
         console.error('Error loading event details:', error);
-        alert('Error al cargar los detalles del evento: ' + error.message);
+        showToast('Error al cargar los detalles del evento: ' + error.message, 'error');
+    } finally {
+        hideLoading();
     }
 };
 
-// Helper function to reload comments section - Uncommenting
+// Helper function to reload comments section
 async function reloadCommentsSection(eventId, detailsElement) {
     try {
-        // Load comments again
-        const { data: comments, error: commentsError } = await supabase
+        const { data: comments, error } = await supabase
             .from('comments')
             .select('*, users(name)')
             .eq('event_id', eventId)
-            .order('id', { ascending: false });
+            .order('created_at', { ascending: false });
 
-        if (commentsError) throw commentsError;
+        if (error) throw error;
 
-        // Update only the comments list
-        const commentsListElement = detailsElement.querySelector('.comments-list');
-        
-        if (commentsListElement) {
-             commentsListElement.innerHTML = comments.map(comment => `
-                 <div class="comment mb-3">
-                     <strong>${comment.users ? comment.users.name : 'Usuario desconocido'}</strong>
-                     <p>${comment.comment}</p>
-                 </div>
-             `).join('');
+        const commentsList = detailsElement.querySelector('#commentsList');
+        if (commentsList) {
+            commentsList.innerHTML = comments.map(comment => `
+                <div class="comment mb-3">
+                    <strong>${comment.users.name}</strong>
+                    <p>${comment.comment}</p>
+                    <small class="text-muted">${new Date(comment.created_at).toLocaleString()}</small>
+                </div>
+            `).join('');
         }
-
-         // No need to re-attach form listener if we only update .comments-list innerHTML
-
     } catch (error) {
-        console.error('Error reloading comments section:', error);
-        alert('Error al recargar los comentarios: ' + error.message);
+        console.error('Error reloading comments:', error);
+        showToast('Error al recargar comentarios: ' + error.message, 'error');
     }
-}
-
-// Make viewEvent globally accessible for onclick attributes in HTML
-window.viewEvent = viewEvent; 
+} 

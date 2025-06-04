@@ -3,161 +3,586 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Eventos - PhotoMeet</title>
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- AOS CSS -->
-    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
-    <!-- Custom CSS -->
-    <link rel="stylesheet" href="/src/css/styles.css">
-    <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <title>Eventos - Gestión de Eventos</title>
+    <script type="module">
+        import supabase from '/src/js/supabaseClient.js';
+        import { showLoading, hideLoading, showToast } from '/src/js/utils.js';
+        window.supabase = supabase;
+        window.showLoading = showLoading;
+        window.hideLoading = hideLoading;
+        window.showToast = showToast;
+    </script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
+    <style>
+        .event-card {
+            transition: transform 0.2s;
+            margin-bottom: 1rem;
+        }
+        .event-card:hover {
+            transform: translateY(-5px);
+        }
+        .event-image {
+            height: 200px;
+            object-fit: cover;
+        }
+    </style>
 </head>
 <body>
-    <!-- Navbar -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container">
-            <a class="navbar-brand" href="/">PhotoMeet</a>
+            <a class="navbar-brand" href="index.html">Calendario de Eventos</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav me-auto">
+                <ul class="navbar-nav ms-auto">
                     <li class="nav-item">
-                        <a class="nav-link active" href="/eventos.html">Eventos</a>
+                        <a class="nav-link" href="index.html">Inicio</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="/calendario.html">Calendario</a>
+                        <a class="nav-link" href="calendario.html">Calendario</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="eventos.html">Eventos</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="profile.html">Mi Perfil</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" onclick="handleLogout()">Cerrar Sesión</a>
                     </li>
                 </ul>
-                <div class="d-flex">
-                    <button class="btn btn-outline-light me-2" id="loginBtn">Iniciar Sesión</button>
-                    <button class="btn btn-primary" id="registerBtn">Registrarse</button>
-                    <div id="userMenu" style="display: none;"></div>
-                </div>
             </div>
         </div>
     </nav>
 
-    <!-- Events Header -->
-    <header class="bg-light py-5">
-        <div class="container">
-            <h1 class="display-4 text-center mb-4">Eventos Fotográficos</h1>
-            <div class="row justify-content-center">
-                <div class="col-md-8">
-                    <div class="input-group mb-3">
-                        <input type="text" class="form-control" placeholder="Buscar eventos..." id="searchInput">
-                        <button class="btn btn-primary" type="button" id="searchBtn">Buscar</button>
-                    </div>
-                </div>
+    <div class="container my-4">
+        <div class="row mb-4">
+            <div class="col">
+                <h2>Eventos Disponibles</h2>
+            </div>
+            <div class="col-auto">
+                <button class="btn btn-primary" onclick="showCreateEventModal()">
+                    <i class="bi bi-plus-circle"></i> Crear Evento
+                </button>
             </div>
         </div>
-    </header>
 
-    <!-- Filters Section -->
-    <section class="py-4 bg-white">
-        <div class="container">
-            <div class="row">
-                <div class="col-md-3">
-                    <div class="card">
-                        <div class="card-body">
-                            <h5 class="card-title">Filtros</h5>
-                            <form id="filterForm">
-                                <div class="mb-3">
-                                    <label class="form-label">Fecha</label>
-                                    <input type="date" class="form-control" id="dateFilter">
-                                </div>
-                                <div class="mb-3">
-                                    <label class="form-label">Ubicación</label>
-                                    <input type="text" class="form-control" id="locationFilter">
-                                </div>
-                                <button type="submit" class="btn btn-primary w-100">Aplicar Filtros</button>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-9">
-                    <div class="row" id="eventsList">
-                        <!-- Events will be loaded dynamically -->
-                    </div>
-                </div>
-            </div>
+        <div class="row" id="eventsContainer">
+            <!-- Los eventos se cargarán dinámicamente aquí -->
         </div>
-    </section>
-
-    <!-- Create Event Button (only visible when logged in) -->
-    <div class="position-fixed bottom-0 end-0 p-3" id="createEventBtn" style="display: none;">
-        <button class="btn btn-primary btn-lg rounded-circle" data-bs-toggle="modal" data-bs-target="#createEventModal">
-            <i class="fas fa-plus"></i>
-        </button>
     </div>
 
-    <!-- Create Event Modal -->
-    <div class="modal fade" id="createEventModal" tabindex="-1">
-        <div class="modal-dialog modal-lg">
+    <!-- Modal para crear/editar evento -->
+    <div class="modal fade" id="eventModal" tabindex="-1">
+        <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Crear Nuevo Evento</h5>
+                    <h5 class="modal-title" id="eventModalTitle">Crear Evento</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <form id="createEventForm">
+                    <form id="eventForm">
                         <div class="mb-3">
                             <label class="form-label">Título</label>
-                            <input type="text" class="form-control" required name="title">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Descripción</label>
-                            <textarea class="form-control" rows="3" required name="description"></textarea>
+                            <input type="text" class="form-control" id="eventTitle" required>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Fecha</label>
-                            <input type="datetime-local" class="form-control" required name="date">
+                            <input type="datetime-local" class="form-control" id="eventDate" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Descripción</label>
+                            <textarea class="form-control" id="eventDescription" rows="3" required></textarea>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Ubicación</label>
-                            <input type="text" class="form-control" required name="location">
+                            <input type="text" class="form-control" id="eventLocation" required>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Imagen del Evento</label>
-                            <input type="file" class="form-control" accept="image/*" required name="image">
+                            <input type="file" class="form-control" id="eventImage" accept="image/*">
+                            <small class="form-text text-muted">Formatos permitidos: JPG, PNG, GIF. Tamaño máximo: 5MB</small>
                         </div>
                     </form>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="button" class="btn btn-primary" id="submitEvent">Crear Evento</button>
+                    <button type="button" class="btn btn-primary" onclick="saveEvent()">Guardar</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Event Details Modal -->
-    <div class="modal fade" id="eventDetailsModal" tabindex="-1" aria-labelledby="eventDetailsModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
+    <!-- Modal para ver detalles del evento -->
+    <div class="modal fade" id="eventDetailsModal" tabindex="-1">
+        <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="eventDetailsModalLabel">Detalles del Evento</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <h5 class="modal-title" id="eventDetailsTitle">Detalles del Evento</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <div id="eventDetails">
-                        <!-- Event details will be loaded dynamically here by viewEvent function -->
-                    </div>
+                    <div id="eventDetails"></div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                    <!-- Add any other buttons here, e.g., Join/Comment if applicable to this modal -->
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Scripts -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script src="https://kit.fontawesome.com/YOUR_KIT_CODE.js"></script>
-    <script type="module" src="/src/js/events.js"></script>
+    <!-- Modal para eliminar evento -->
+    <div class="modal fade" id="deleteEventModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Confirmar Eliminación</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>¿Estás seguro de que deseas eliminar este evento? Esta acción no se puede deshacer.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-danger" id="confirmDeleteBtn">Eliminar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/src/js/navigation.js"></script>
+    <script>
+        let currentEventId = null;
+        const eventModal = new bootstrap.Modal(document.getElementById('eventModal'));
+        const deleteEventModal = new bootstrap.Modal(document.getElementById('deleteEventModal'));
+        let eventToDelete = null;
+
+        // Cargar eventos
+        async function loadEvents() {
+            try {
+                const { data: events, error } = await window.supabase
+                    .from('events')
+                    .select('*')
+                    .order('date', { ascending: true });
+
+                if (error) throw error;
+
+                const container = document.getElementById('eventsContainer');
+                container.innerHTML = '';
+
+                const { data: sessionData } = await window.supabase.auth.getSession();
+                const currentUserId = sessionData.session?.user?.id;
+
+                for (const event of events) {
+                    // Usar directamente la URL de la base de datos
+                    const eventCard = createEventCard(event, currentUserId);
+                    container.appendChild(eventCard);
+                }
+
+            } catch (error) {
+                console.error('Error al cargar eventos:', error);
+                alert('Error al cargar los eventos');
+            }
+        }
+
+        // Crear tarjeta de evento
+        function createEventCard(event, currentUserId) {
+            const col = document.createElement('div');
+            col.className = 'col-md-4';
+            
+            // Formatear la fecha para mostrarla
+            const eventDate = new Date(event.date);
+            const formattedDate = eventDate.toLocaleString('es-ES', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false
+            });
+            
+            // Usar directamente la URL de la base de datos
+            col.innerHTML = `
+                <div class="card event-card">
+                    ${event.image_url ? `
+                        <img src="${event.image_url}" class="card-img-top event-image" alt="${event.title}">
+                    ` : ''}
+                    <div class="card-body">
+                        <h5 class="card-title">${event.title}</h5>
+                        <p class="card-text">
+                            <i class="bi bi-calendar"></i> ${formattedDate}<br>
+                            <i class="bi bi-geo-alt"></i> ${event.location}
+                        </p>
+                        <p class="card-text">${event.description.substring(0, 100)}${event.description.length > 100 ? '...' : ''}</p>
+                        <div class="d-flex justify-content-between">
+                            <button class="btn btn-primary btn-sm" onclick="viewEventDetails('${event.id}')">
+                                <i class="bi bi-eye"></i> Ver Detalles
+                            </button>
+                            ${event.user_id === currentUserId ? `
+                                <div>
+                                    <button class="btn btn-outline-primary btn-sm" onclick="editEvent('${event.id}')">
+                                        <i class="bi bi-pencil"></i> Editar
+                                    </button>
+                                    <button class="btn btn-outline-danger btn-sm" onclick="deleteEvent('${event.id}')">
+                                        <i class="bi bi-trash"></i> Eliminar
+                                    </button>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            return col;
+        }
+
+        // Mostrar modal para crear evento
+        function showCreateEventModal() {
+            currentEventId = null;
+            document.getElementById('eventModalTitle').textContent = 'Crear Evento';
+            document.getElementById('eventForm').reset();
+             // Limpiar el campo de imagen al crear nuevo evento
+            const eventImageInput = document.getElementById('eventImage');
+            if (eventImageInput) eventImageInput.value = '';
+            eventModal.show();
+        }
+
+        // Editar evento
+        async function editEvent(eventId) {
+            try {
+                const { data: event, error } = await window.supabase
+                    .from('events')
+                    .select('*')
+                    .eq('id', eventId)
+                    .single();
+
+                if (error) throw error;
+
+                const { data: sessionData } = await window.supabase.auth.getSession();
+                const currentUserId = sessionData.session?.user?.id;
+
+                if (event.user_id !== currentUserId) {
+                    alert('No tienes permiso para editar este evento');
+                    return;
+                }
+
+                currentEventId = eventId;
+                document.getElementById('eventModalTitle').textContent = 'Editar Evento';
+                document.getElementById('eventTitle').value = event.title;
+                
+                // Ajustar la fecha para mostrarla correctamente en el input
+                const eventDate = new Date(event.date);
+                const year = eventDate.getFullYear();
+                const month = String(eventDate.getMonth() + 1).padStart(2, '0');
+                const day = String(eventDate.getDate()).padStart(2, '0');
+                const hours = String(eventDate.getHours()).padStart(2, '0');
+                const minutes = String(eventDate.getMinutes()).padStart(2, '0');
+                
+                document.getElementById('eventDate').value = `${year}-${month}-${day}T${hours}:${minutes}`;
+                document.getElementById('eventDescription').value = event.description;
+                document.getElementById('eventLocation').value = event.location;
+                
+                // Limpiar el campo de imagen y mostrar la imagen actual
+                const eventImageInput = document.getElementById('eventImage');
+                if (eventImageInput) {
+                    eventImageInput.value = ''; // Solo podemos establecer el valor a cadena vacía
+                    // Agregar una pequeña nota sobre la imagen actual
+                    const imageNote = document.createElement('small');
+                    imageNote.className = 'form-text text-muted mt-1';
+                    imageNote.textContent = 'Imagen actual: ' + (event.image_url ? 'Sí' : 'No');
+                    eventImageInput.parentNode.appendChild(imageNote);
+                }
+
+                eventModal.show();
+            } catch (error) {
+                console.error('Error al cargar evento:', error);
+                alert('Error al cargar el evento');
+            }
+        }
+
+        // Función para generar un color basado en el ID del usuario (simple hash)
+        function getUserColor(userId) {
+            let hash = 0;
+            for (let i = 0; i < userId.length; i++) {
+                hash = userId.charCodeAt(i) + ((hash << 5) - hash);
+            }
+            const c = (hash & 0x00FFFFFF)
+                .toString(16)
+                .toUpperCase();
+            return '#' + '00000'.substring(0, 6 - c.length) + c;
+        }
+
+        // Ver detalles del evento
+        async function viewEventDetails(eventId) {
+            try {
+                // Cerrar cualquier modal existente
+                const existingModal = bootstrap.Modal.getInstance(document.getElementById('eventDetailsModal'));
+                if (existingModal) {
+                    existingModal.hide();
+                    // Esperar a que el modal se cierre completamente
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                }
+
+                // Obtener comentarios y el nombre del usuario asociado
+                const { data: event, error } = await window.supabase
+                    .from('events')
+                    .select('*, comments(*, users(name))')
+                    .eq('id', eventId)
+                    .single();
+
+                if (error) throw error;
+
+                const modalBody = document.getElementById('eventDetails');
+                
+                modalBody.innerHTML = `
+                    <div class="event-details">
+                        ${event.image_url ? `
+                            <img src="${event.image_url}" class="img-fluid rounded mb-3" alt="${event.title}">
+                        ` : ''}
+                        <h4>${event.title}</h4>
+                        <p><i class="bi bi-calendar"></i> ${new Date(event.date).toLocaleString()}</p>
+                        <p><i class="bi bi-geo-alt"></i> ${event.location}</p>
+                        <p>${event.description}</p>
+                        
+                        <div class="comments-section mt-4">
+                            <h5>Comentarios</h5>
+                            <div id="commentsList" class="mb-3">
+                                ${event.comments ? event.comments.map(comment => `
+                                    <div class="comment mb-2" style="border-left: 4px solid ${getUserColor(comment.user_id)}; padding-left: 10px;">
+                                        <strong>${comment.users ? comment.users.name : 'Usuario Desconocido'}:</strong>
+                                        <p class="mb-1">${comment.comment}</p>
+                                    </div>
+                                `).join('') : ''}
+                            </div>
+                            <form id="commentForm" onsubmit="addComment(event, '${eventId}')">
+                                <div class="mb-3">
+                                    <textarea class="form-control" id="commentContent" rows="2" required></textarea>
+                                </div>
+                                <button type="submit" class="btn btn-primary">Agregar Comentario</button>
+                            </form>
+                        </div>
+                    </div>
+                `;
+                
+                // Crear y mostrar el nuevo modal
+                const modal = new bootstrap.Modal(document.getElementById('eventDetailsModal'));
+                modal.show();
+            } catch (error) {
+                console.error('Error al cargar detalles del evento:', error);
+                alert('Error al cargar los detalles del evento');
+            }
+        }
+
+        // Agregar comentario
+        async function addComment(event, eventId) {
+            event.preventDefault();
+            
+            const content = document.getElementById('commentContent').value;
+            const { data: sessionData } = await window.supabase.auth.getSession();
+            const user = sessionData.session?.user;
+            
+            if (!user) {
+                alert('Debes iniciar sesión para comentar');
+                return;
+            }
+
+            try {
+                const { error } = await window.supabase
+                    .from('comments')
+                    .insert([{
+                        event_id: eventId,
+                        user_id: user.id,
+                        comment: content
+                    }]);
+
+                if (error) throw error;
+
+                document.getElementById('commentContent').value = '';
+                
+                // Cerrar el modal actual
+                const modal = bootstrap.Modal.getInstance(document.getElementById('eventDetailsModal'));
+                if (modal) {
+                    modal.hide();
+                    // Esperar a que el modal se cierre completamente
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                }
+                
+                // Recargar los detalles del evento
+                await viewEventDetails(eventId);
+            } catch (error) {
+                console.error('Error al agregar comentario:', error);
+                alert('Error al agregar el comentario');
+            }
+        }
+
+        // Guardar evento
+        async function saveEvent() {
+            const { data: sessionData } = await window.supabase.auth.getSession();
+            const user = sessionData.session?.user;
+
+            if (!user) {
+                alert('Debes iniciar sesión para guardar eventos');
+                return;
+            }
+
+            try {
+                showLoading('Guardando evento...');
+                
+                let imageUrl = null;
+                const imageFile = document.getElementById('eventImage').files[0];
+                
+                // Si hay una imagen seleccionada, súbela primero
+                if (imageFile) {
+                    const filePath = `${Date.now()}-${imageFile.name}`;
+                    const { data: imageData, error: imageError } = await window.supabase.storage
+                        .from('event-images')
+                        .upload(filePath, imageFile);
+
+                    if (imageError) throw imageError;
+
+                    // Obtener la URL pública de la imagen
+                    const { data: { publicUrl } } = window.supabase.storage
+                        .from('event-images')
+                        .getPublicUrl(filePath);
+
+                    imageUrl = publicUrl;
+                }
+
+                // Obtener la fecha y hora del input
+                const dateInput = document.getElementById('eventDate').value;
+                
+                // Construir la fecha en formato ISO 8601 con indicación de UTC
+                // Esto evita problemas de interpretación de zona horaria al guardar
+                const eventDateTimeUTC = dateInput + ':00Z'; // Agregar segundos (:00) y la Z para indicar UTC
+
+                const eventData = {
+                    title: document.getElementById('eventTitle').value,
+                    date: eventDateTimeUTC, // Guardar la fecha y hora como string en formato ISO con Z
+                    description: document.getElementById('eventDescription').value,
+                    location: document.getElementById('eventLocation').value,
+                    user_id: user.id
+                };
+
+                // Solo actualizar image_url si se subió una nueva imagen
+                if (imageUrl) {
+                    eventData.image_url = imageUrl;
+                }
+
+                if (currentEventId) {
+                    // Verificar que el usuario sea el creador del evento
+                    const { data: existingEvent, error: fetchError } = await window.supabase
+                        .from('events')
+                        .select('user_id')
+                        .eq('id', currentEventId)
+                        .single();
+
+                    if (fetchError) throw fetchError;
+                    if (existingEvent.user_id !== user.id) {
+                        alert('No tienes permiso para editar este evento');
+                        return;
+                    }
+
+                    const { error } = await window.supabase
+                        .from('events')
+                        .update(eventData)
+                        .eq('id', currentEventId);
+                    
+                    if (error) throw error;
+                } else {
+                    const { error } = await window.supabase
+                        .from('events')
+                        .insert([eventData]);
+                    
+                    if (error) throw error;
+                }
+
+                eventModal.hide();
+                loadEvents();
+            } catch (error) {
+                console.error('Error al guardar evento:', error);
+                showToast('Error al guardar el evento: ' + error.message, 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // Eliminar evento
+        async function deleteEvent(eventId) {
+            const { data: sessionData } = await window.supabase.auth.getSession();
+            const user = sessionData.session?.user;
+
+            if (!user) {
+                alert('Debes iniciar sesión para eliminar eventos');
+                return;
+            }
+
+            try {
+                // Verificar que el usuario sea el creador del evento
+                const { data: event, error: fetchError } = await window.supabase
+                    .from('events')
+                    .select('user_id')
+                    .eq('id', eventId)
+                    .single();
+
+                if (fetchError) throw fetchError;
+                if (event.user_id !== user.id) {
+                    alert('No tienes permiso para eliminar este evento');
+                    return;
+                }
+
+                // Guardar el ID del evento a eliminar y mostrar el modal
+                eventToDelete = eventId;
+                deleteEventModal.show();
+            } catch (error) {
+                console.error('Error al verificar evento:', error);
+                alert('Error al verificar el evento');
+            }
+        }
+
+        // Función para confirmar la eliminación
+        async function confirmDelete() {
+            if (!eventToDelete) return;
+
+            try {
+                showLoading('Eliminando evento...');
+                const { error } = await window.supabase
+                    .from('events')
+                    .delete()
+                    .eq('id', eventToDelete);
+
+                if (error) throw error;
+
+                deleteEventModal.hide();
+                loadEvents();
+            } catch (error) {
+                console.error('Error al eliminar evento:', error);
+                showToast('Error al eliminar el evento', 'error');
+            } finally {
+                hideLoading();
+                eventToDelete = null;
+            }
+        }
+
+        // Agregar el event listener para el botón de confirmar eliminación
+        document.getElementById('confirmDeleteBtn').addEventListener('click', confirmDelete);
+
+        // Cerrar sesión
+        async function handleLogout() {
+            try {
+                const { error } = await window.supabase.auth.signOut();
+                if (error) throw error;
+                window.location.href = 'login.html';
+            } catch (error) {
+                console.error('Error al cerrar sesión:', error);
+                alert('Error al cerrar sesión');
+            }
+        }
+
+        // Cargar eventos al iniciar
+        document.addEventListener('DOMContentLoaded', loadEvents);
+    </script>
 </body>
 </html> 
