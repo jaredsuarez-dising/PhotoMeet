@@ -201,13 +201,14 @@ loginForm.addEventListener('submit', async (e) => {
 // Handle register form submission
 registerForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    
+
     const name = document.getElementById('registerName').value;
     const email = document.getElementById('registerEmail').value;
     const password = document.getElementById('registerPassword').value;
 
     try {
-        const { data, error } = await supabase.auth.signUp({
+        // 1. Register user with Supabase Auth
+        const { data, error: authError } = await supabase.auth.signUp({
             email,
             password,
             options: {
@@ -217,10 +218,34 @@ registerForm.addEventListener('submit', async (e) => {
             }
         });
 
-        if (error) throw error;
+        if (authError) throw authError;
+
+        const user = data.user;
+
+        // 2. Insert user data into public.users table
+        if (user) {
+            const { error: dbError } = await supabase
+                .from('users')
+                .insert([
+                    { id: user.id, name: name, email: email }
+                ]);
+
+            if (dbError) {
+                // Log the error but allow auth registration to proceed
+                console.error('Error inserting user into public.users:', dbError);
+                // Optionally, you might want to alert the user or handle this case differently
+                // alert('Registro de autenticación exitoso, pero hubo un error al guardar información adicional.');
+            }
+        }
 
         registerModal.hide();
-        alert('Registro exitoso. Por favor verifica tu email.');
+        // Check if email confirmation is required by Supabase settings
+        if (user && !user.identities.some(identity => identity.provider === 'email' && identity.identity_data.email_verified)) {
+             alert('Registro exitoso. Por favor verifica tu email antes de iniciar sesión.');
+        } else {
+             alert('Registro exitoso.');
+        }
+
     } catch (error) {
         alert('Error al registrarse: ' + error.message);
     }

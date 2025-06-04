@@ -1,3 +1,8 @@
+import { Calendar } from '@fullcalendar/core';
+import dayGridPlugin from '@fullcalendar/daygrid';
+import timeGridPlugin from '@fullcalendar/timegrid';
+import listPlugin from '@fullcalendar/list';
+import interactionPlugin from '@fullcalendar/interaction';
 import { createClient } from '@supabase/supabase-js';
 
 // Initialize Supabase
@@ -5,22 +10,47 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// Initialize FullCalendar
-document.addEventListener('DOMContentLoaded', function() {
-    const calendarEl = document.getElementById('calendar');
-    const calendar = new FullCalendar.Calendar(calendarEl, {
+// DOM Elements
+const calendarEl = document.getElementById('calendar');
+// Assuming you have a modal or section to display event details
+const eventDetailsModal = document.getElementById('eventDetailsModal'); // Example modal ID
+
+// Auth DOM Elements
+const loginBtn = document.getElementById('loginBtn');
+const registerBtn = document.getElementById('registerBtn');
+const userMenu = document.getElementById('userMenu');
+
+// Initialize Calendar and check auth status on page load
+document.addEventListener('DOMContentLoaded', () => {
+    // Hide auth elements initially to prevent flicker
+    if (loginBtn) loginBtn.style.display = 'none';
+    if (registerBtn) registerBtn.style.display = 'none';
+    if (userMenu) userMenu.style.display = 'none';
+
+    // Initialize FullCalendar
+    const calendar = new Calendar(calendarEl, {
+        plugins: [dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin],
         initialView: 'dayGridMonth',
         headerToolbar: {
             left: 'prev,next today',
             center: 'title',
-            right: 'dayGridMonth,timeGridWeek,timeGridDay'
+            right: 'dayGridMonth,timeGridWeek,listWeek'
         },
-        locale: 'es',
-        events: loadEvents,
-        eventClick: handleEventClick
+        eventClick: function(info) {
+            handleEventClick(info.event);
+        },
+        events: async function(fetchInfo, successCallback, failureCallback) {
+            try {
+                const events = await loadEvents(fetchInfo.start, fetchInfo.end);
+                successCallback(events);
+            } catch (error) {
+                failureCallback(error);
+            }
+        }
     });
-
     calendar.render();
+
+    checkAuthStatus(); // Add this line
 
     // View buttons
     document.getElementById('monthView').addEventListener('click', () => {
@@ -36,14 +66,64 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
-// Load events from Supabase
-async function loadEvents(info, successCallback, failureCallback) {
+// Check authentication status
+async function checkAuthStatus() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+        showUserMenu(user);
+    } else {
+        showAuthButtons();
+    }
+}
+
+// Show user menu when logged in
+function showUserMenu(user) {
+    if (loginBtn) loginBtn.style.display = 'none';
+    if (registerBtn) registerBtn.style.display = 'none';
+    
+    if (userMenu) {
+        userMenu.style.display = 'block';
+        userMenu.innerHTML = `
+            <div class="dropdown">
+                <button class="btn btn-outline-light dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                    ${user.email}
+                </button>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="#" onclick="logout()">Cerrar Sesión</a></li>
+                </ul>
+            </div>
+        `;
+    }
+}
+
+// Show auth buttons when logged out
+function showAuthButtons() {
+    if (loginBtn) loginBtn.style.display = 'block';
+    if (registerBtn) registerBtn.style.display = 'block';
+    if (userMenu) userMenu.style.display = 'none';
+}
+
+// Handle logout
+window.logout = async () => {
+    try {
+        const { error } = await supabase.auth.signOut();
+        if (error) throw error;
+        
+        checkAuthStatus();
+        alert('Sesión cerrada correctamente');
+    } catch (error) {
+        alert('Error al cerrar sesión: ' + error.message);
+    }
+};
+
+// Function to load events from Supabase for the calendar
+async function loadEvents(start, end) {
     try {
         const { data: events, error } = await supabase
             .from('events')
             .select('*, users(name)')
-            .gte('date', info.startStr)
-            .lte('date', info.endStr);
+            .gte('date', start)
+            .lte('date', end);
 
         if (error) throw error;
 
@@ -56,16 +136,15 @@ async function loadEvents(info, successCallback, failureCallback) {
             image_url: event.image_url
         }));
 
-        successCallback(formattedEvents);
+        return formattedEvents;
     } catch (error) {
         console.error('Error loading events:', error);
-        failureCallback(error);
+        return [];
     }
 }
 
-// Handle event click
-function handleEventClick(info) {
-    const event = info.event;
+// Function to handle event click
+function handleEventClick(event) {
     const modal = new bootstrap.Modal(document.getElementById('eventDetailsModal'));
     
     document.getElementById('eventDetails').innerHTML = `
@@ -84,7 +163,7 @@ function handleEventClick(info) {
     modal.show();
 }
 
-// Load upcoming events
+// Function to load upcoming events (if used elsewhere on the page)
 async function loadUpcomingEvents() {
     try {
         const { data: events, error } = await supabase
@@ -117,6 +196,13 @@ function formatDate(date) {
         day: 'numeric'
     });
 }
+
+function getEventColor(eventType) {
+    // ... existing code ...
+}
+
+// AOS Initialization (if used on this page)
+// AOS.init();
 
 // Load upcoming events when the page loads
 document.addEventListener('DOMContentLoaded', loadUpcomingEvents); 

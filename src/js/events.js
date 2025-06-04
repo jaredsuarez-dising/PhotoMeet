@@ -14,6 +14,11 @@ const createEventBtn = document.getElementById('createEventBtn');
 const createEventForm = document.getElementById('createEventForm');
 const submitEventBtn = document.getElementById('submitEvent');
 
+// Auth DOM Elements
+const loginBtn = document.getElementById('loginBtn');
+const registerBtn = document.getElementById('registerBtn');
+const userMenu = document.getElementById('userMenu');
+
 // Event Listeners
 searchBtn.addEventListener('click', handleSearch);
 filterForm.addEventListener('submit', handleFilter);
@@ -21,6 +26,11 @@ submitEventBtn.addEventListener('click', handleCreateEvent);
 
 // Load events when the page loads
 document.addEventListener('DOMContentLoaded', () => {
+    // Hide auth elements initially to prevent flicker
+    if (loginBtn) loginBtn.style.display = 'none';
+    if (registerBtn) registerBtn.style.display = 'none';
+    if (userMenu) userMenu.style.display = 'none';
+
     loadEvents();
     checkAuthStatus();
 });
@@ -29,9 +39,51 @@ document.addEventListener('DOMContentLoaded', () => {
 async function checkAuthStatus() {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
-        createEventBtn.style.display = 'block';
+        showUserMenu(user);
+    } else {
+        showAuthButtons();
     }
 }
+
+// Show user menu when logged in
+function showUserMenu(user) {
+    if (loginBtn) loginBtn.style.display = 'none';
+    if (registerBtn) registerBtn.style.display = 'none';
+    
+    if (userMenu) {
+        userMenu.style.display = 'block';
+        userMenu.innerHTML = `
+            <div class="dropdown">
+                <button class="btn btn-outline-light dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                    ${user.email}
+                </button>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="#" onclick="logout()">Cerrar Sesión</a></li>
+                </ul>
+            </div>
+        `;
+    }
+}
+
+// Show auth buttons when logged out
+function showAuthButtons() {
+    if (loginBtn) loginBtn.style.display = 'block';
+    if (registerBtn) registerBtn.style.display = 'block';
+    if (userMenu) userMenu.style.display = 'none';
+}
+
+// Handle logout
+window.logout = async () => {
+    try {
+        const { error } = await supabase.auth.signOut();
+        if (error) throw error;
+        
+        checkAuthStatus();
+        alert('Sesión cerrada correctamente');
+    } catch (error) {
+        alert('Error al cerrar sesión: ' + error.message);
+    }
+};
 
 // Load events from Supabase
 async function loadEvents(filters = {}) {
