@@ -4,9 +4,23 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Calendario - Gestión de Eventos</title>
+    <!-- Icono de la web -->
+    <link rel="icon" type="image/x-icon" href="/logo.ico">
     <script type="module">
         import supabase from '/src/js/supabaseClient.js';
+        // Importar funciones necesarias y exponerlas globalmente
+        import { showAlert } from '/src/js/utils.js';
+        import { addComment } from '/src/js/calendar.js';
+        
         window.supabase = supabase;
+        window.showAlert = showAlert; // Exponer showAlert globalmente
+        window.addComment = addComment; // Exponer addComment globalmente
+
+        // La función viewEventDetails es llamada directamente por fullcalendar,
+        // y las dependencias (getUserColor) están en el mismo módulo calendar.js
+        // o ya están globalmente disponibles (supabase, showAlert).
+        // No necesitamos exponer viewEventDetails ni getUserColor globalmente aquí.
+
     </script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">

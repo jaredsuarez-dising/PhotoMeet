@@ -4,12 +4,26 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mi Perfil - Gestión de Eventos</title>
+    <!-- Icono de la web -->
+    <link rel="icon" type="image/x-icon" href="/logo.ico">
     <script type="module">
         import supabase from '/src/js/supabaseClient.js';
-        import { showLoading, hideLoading } from '/src/js/utils.js';
+        import { showLoading, hideLoading, showAlert } from '/src/js/utils.js';
+        import { viewEventDetails, getUserColor, addComment } from '/src/js/calendar.js';
+
         window.supabase = supabase;
         window.showLoading = showLoading;
         window.hideLoading = hideLoading;
+        window.showAlert = showAlert;
+
+        window.viewEventDetails = viewEventDetails;
+        window.getUserColor = getUserColor;
+        window.addComment = addComment;
+
+        let eventModal;
+        let deleteEventModal;
+        let eventToDelete = null;
+        let currentUser = null;
     </script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
@@ -209,14 +223,27 @@
         </div>
     </div>
 
+    <!-- Modal de Detalles del Evento (Necesario para viewEventDetails) -->
+    <div class="modal fade" id="eventDetailsModal" tabindex="-1" aria-labelledby="eventDetailsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="eventDetailsModalLabel">Detalles del Evento</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="eventDetails">
+                    <!-- El contenido del evento se cargará aquí -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script type="module" src="/src/js/navigation.js"></script>
     <script>
-        let eventModal;
-        let deleteEventModal;
-        let eventToDelete = null;
-        let currentUser;
-
         // Inicialización
         document.addEventListener('DOMContentLoaded', async () => {
             eventModal = new bootstrap.Modal(document.getElementById('eventModal'));
@@ -461,18 +488,6 @@
                 hideLoading();
                 eventToDelete = null;
             }
-        }
-
-        // Mostrar alerta
-        function showAlert(message, type) {
-            const alertDiv = document.createElement('div');
-            alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed top-0 end-0 m-3`;
-            alertDiv.innerHTML = `
-                ${message}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            `;
-            document.body.appendChild(alertDiv);
-            setTimeout(() => alertDiv.remove(), 3000);
         }
 
         // Cerrar sesión

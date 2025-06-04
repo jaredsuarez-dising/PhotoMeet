@@ -83,4 +83,16 @@ export function debounceButton(button, callback, delay = 1000) {
             }, delay);
         }
     });
+}
+
+// Function to show alerts (assuming elements exist)
+export function showAlert(message, type) {
+    const alertElement = document.getElementById(`${formId}${type}`);
+    if (alertElement) {
+        alertElement.textContent = message;
+        alertElement.style.display = 'block';
+        setTimeout(() => {
+            alertElement.style.display = 'none';
+        }, 5000);
+    }
 } 

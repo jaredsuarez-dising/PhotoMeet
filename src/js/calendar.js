@@ -137,7 +137,7 @@ function formatDate(date) {
 }
 
 // Function to generate a color based on the user ID (simple hash)
-function getUserColor(userId) {
+export function getUserColor(userId) {
     let hash = 0;
     for (let i = 0; i < userId.length; i++) {
         hash = userId.charCodeAt(i) + ((hash << 5) - hash);
@@ -149,7 +149,7 @@ function getUserColor(userId) {
 }
 
 // Function to view event details
-async function viewEventDetails(eventId) {
+export async function viewEventDetails(eventId) {
     try {
         // Obtener comentarios y el nombre del usuario asociado
         const { data: event, error } = await supabase
@@ -254,13 +254,13 @@ async function loadAndDisplayComments(eventId) {
 }
 
 // Function to add a comment (reutilizada del archivo eventos.html)
-async function addComment(event, eventId) {
+export async function addComment(event, eventId) {
     event.preventDefault();
-    
+
     const content = document.getElementById('commentContent').value;
     const { data: sessionData } = await window.supabase.auth.getSession();
     const user = sessionData.session?.user;
-    
+
     if (!user) {
         alert('Debes iniciar sesión para comentar');
         return;
