@@ -1,0 +1,17 @@
+{
+    "version": 2,
+    "routes": [
+        {
+            "src": "/components/navbar.html",
+            "dest": "/components/navbar.html",
+            "headers": {
+                "cache-control": "no-cache",
+                "content-type": "text/html"
+            }
+        },
+        {
+            "src": "/(.*)",
+            "dest": "/$1"
+        }
+    ]
+} 
