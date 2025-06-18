@@ -197,6 +197,18 @@
     <script src="/src/js/events.js"></script>
     <script src="/src/js/index.js"></script>
     <script>
+        // Validar autenticación antes de mostrar la página
+        (async () => {
+            // Esperar a que supabase esté disponible
+            while (!window.supabase) {
+                await new Promise(resolve => setTimeout(resolve, 50));
+            }
+            const { data: { user } } = await window.supabase.auth.getUser();
+            if (!user) {
+                window.location.href = 'login.html';
+            }
+        })();
+
         // Cargar eventos próximos
         async function loadUpcomingEvents() {
             try {

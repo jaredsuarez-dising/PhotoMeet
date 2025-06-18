@@ -55,3 +55,18 @@ function loadNavbar() {
 
 // Cargar el navbar inmediatamente
 loadNavbar(); 
+
+
+window.handleLogout = async function() {
+    if (window.supabase && window.supabase.auth) {
+        try {
+            const { error } = await window.supabase.auth.signOut();
+            if (error) throw error;
+            window.location.href = 'login.html';
+        } catch (err) {
+            alert('Error al cerrar sesión: ' + (err.message || err));
+        }
+    } else {
+        alert('Supabase no está inicializado');
+    }
+};
