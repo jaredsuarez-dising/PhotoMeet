@@ -1,10 +1,14 @@
 // Función para cargar el navbar
 function loadNavbar() {
+    console.log('Intentando cargar el navbar...');
     const navbarContainer = document.getElementById('navbar-container');
+    
     if (!navbarContainer) {
         console.error('No se encontró el contenedor del navbar');
         return;
     }
+
+    console.log('Contenedor del navbar encontrado, insertando HTML...');
 
     // HTML del navbar
     const navbarHTML = `
@@ -46,14 +50,26 @@ function loadNavbar() {
         </nav>
     `;
 
-    // Insertar el navbar
-    navbarContainer.innerHTML = navbarHTML;
+    try {
+        // Insertar el navbar
+        navbarContainer.innerHTML = navbarHTML;
+        console.log('Navbar insertado correctamente');
 
-    // Inicializar el tema después de cargar el navbar
-    if (typeof initializeTheme === 'function') {
-        initializeTheme();
+        // Inicializar el tema después de cargar el navbar
+        if (typeof initializeTheme === 'function') {
+            console.log('Inicializando tema...');
+            initializeTheme();
+        } else {
+            console.warn('La función initializeTheme no está disponible');
+        }
+    } catch (error) {
+        console.error('Error al insertar el navbar:', error);
     }
 }
 
-// Cargar el navbar cuando el documento esté listo
-document.addEventListener('DOMContentLoaded', loadNavbar); 
+// Asegurarnos de que el DOM esté completamente cargado
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', loadNavbar);
+} else {
+    loadNavbar();
+} 
