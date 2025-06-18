@@ -1,71 +1,182 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-bs-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PhotoMeet - Conectando Fotógrafos</title>
+    <title>PhotoMeet - Gestión de Eventos Fotográficos</title>
+    <meta name="description" content="PhotoMeet es tu plataforma para gestionar y compartir eventos fotográficos. Conecta con otros fotógrafos, crea eventos y comparte tus mejores momentos.">
+    <meta name="keywords" content="fotografía, eventos fotográficos, comunidad fotográfica, gestión de eventos, compartir fotos">
+    <meta name="author" content="PhotoMeet">
+    <meta name="robots" content="index, follow">
+    <meta property="og:title" content="PhotoMeet - Gestión de Eventos Fotográficos">
+    <meta property="og:description" content="Conecta con otros fotógrafos, crea eventos y comparte tus mejores momentos.">
+    <meta property="og:image" content="https://images.unsplash.com/photo-1511795409834-ef04bbd61622">
+    <meta property="og:url" content="https://photomeet.com">
+    <meta name="twitter:card" content="summary_large_image">
+    <!-- Icono de la web -->
     <link rel="icon" type="image/x-icon" href="/logo.ico">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-  <script type="module" crossorigin src="/assets/index-DKES2ovc.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-DaVD0l5W.css">
+    <script type="module">
+        import supabase from '/src/js/supabaseClient.js';
+        // Importar funciones necesarias y exponerlas globalmente
+        import { showAlert } from '/src/js/utils.js';
+        
+        window.supabase = supabase;
+        window.showAlert = showAlert; // Exponer showAlert globalmente
+    </script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
+    <link href="styles/theme.css" rel="stylesheet">
+    <style>
+        .hero-section {
+            background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)), url('https://images.unsplash.com/photo-1511795409834-ef04bbd61622?ixlib=rb-1.2.1&auto=format&fit=crop&w=1950&q=80');
+            background-size: cover;
+            background-position: center;
+            color: white;
+            padding: 100px 0;
+            margin-top: -56px;
+        }
+        .feature-card {
+            transition: transform 0.3s ease;
+            height: 100%;
+        }
+        .feature-card:hover {
+            transform: translateY(-5px);
+        }
+        .feature-icon {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            color: var(--bs-primary);
+        }
+        .stats-section {
+            background-color: var(--bs-dark);
+            color: white;
+            padding: 4rem 0;
+        }
+        .stat-icon {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            color: var(--bs-primary);
+        }
+        .event-card {
+            transition: transform 0.3s ease;
+            height: 100%;
+        }
+        .event-card:hover {
+            transform: translateY(-5px);
+        }
+        .event-image {
+            height: 200px;
+            object-fit: cover;
+        }
+    </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-        <div class="container">
-            <a class="navbar-brand" href="index.html">PhotoMeet</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="index.html">Inicio</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="calendario.html">Calendario</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="eventos.html">Eventos</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="profile.html">Mi Perfil</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#" onclick="handleLogout()">Cerrar Sesión</a>
-                    </li>
-                </ul>
-            </div>
-        </div>
-    </nav>
+    <div id="navbar-container"></div>
 
     <!-- Hero Section -->
-    <header class="bg-light py-5">
+    <section class="hero-section text-center fade-in">
         <div class="container">
-            <div class="row align-items-center">
-                <div class="col-md-6">
-                    <h1 class="display-4">Conecta con otros fotógrafos</h1>
-                    <p class="lead">Únete a eventos fotográficos, comparte tus experiencias y aprende de otros profesionales.</p>
-                    <a href="eventos.html" class="btn btn-primary btn-lg">Ver Eventos</a>
-                </div>
-                <div class="col-md-6">
-                    <img src="https://images.unsplash.com/photo-1516035069371-29a1b244cc32" class="img-fluid rounded" alt="Fotografía">
-                </div>
-            </div>
+            <h1 class="display-4 mb-4">Bienvenido a PhotoMeet</h1>
+            <p class="lead mb-4">Tu plataforma para gestionar y compartir eventos fotográficos</p>
+            <a href="eventos.html" class="btn btn-primary btn-lg">Explorar Eventos</a>
         </div>
-    </header>
+    </section>
 
-    <!-- Featured Events Section -->
+    <!-- About Section -->
     <section class="py-5">
         <div class="container">
-            <h2 class="text-center mb-4">Próximos Eventos</h2>
-            <div class="row" id="featuredEvents">
-                <!-- Events will be loaded dynamically -->
+            <h2 class="text-center mb-5 fade-in">¿Por qué elegir PhotoMeet?</h2>
+            <div class="row g-4">
+                <div class="col-md-4 fade-in" style="animation-delay: 0.2s;">
+                    <div class="card feature-card">
+                        <div class="card-body text-center">
+                            <i class="bi bi-calendar-check feature-icon"></i>
+                            <h3 class="card-title h5">Gestión de Eventos</h3>
+                            <p class="card-text">Crea y gestiona tus eventos fotográficos de manera sencilla y eficiente.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 fade-in" style="animation-delay: 0.4s;">
+                    <div class="card feature-card">
+                        <div class="card-body text-center">
+                            <i class="bi bi-people feature-icon"></i>
+                            <h3 class="card-title h5">Comunidad</h3>
+                            <p class="card-text">Conecta con otros fotógrafos y comparte experiencias.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 fade-in" style="animation-delay: 0.6s;">
+                    <div class="card feature-card">
+                        <div class="card-body text-center">
+                            <i class="bi bi-camera feature-icon"></i>
+                            <h3 class="card-title h5">Galería</h3>
+                            <p class="card-text">Comparte tus mejores momentos y crea recuerdos inolvidables.</p>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </section>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Stats Section -->
+    <section class="stats-section fade-in" style="animation-delay: 0.8s;">
+        <div class="container">
+            <div class="row text-center">
+                <div class="col-md-4">
+                    <i class="bi bi-calendar-event stat-icon"></i>
+                    <h3 class="h2">100+</h3>
+                    <p>Eventos Creados</p>
+                </div>
+                <div class="col-md-4">
+                    <i class="bi bi-people-fill stat-icon"></i>
+                    <h3 class="h2">500+</h3>
+                    <p>Usuarios Activos</p>
+                </div>
+                <div class="col-md-4">
+                    <i class="bi bi-camera-fill stat-icon"></i>
+                    <h3 class="h2">1000+</h3>
+                    <p>Fotos Compartidas</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Social Media Section -->
+    <section class="py-5 fade-in" style="animation-delay: 1s;">
+        <div class="container">
+            <h2 class="text-center mb-5">Síguenos en Redes Sociales</h2>
+            <div class="row justify-content-center">
+                <div class="col-md-8">
+                    <div class="d-flex justify-content-center gap-4">
+                        <a href="https://facebook.com" target="_blank" class="social-link" aria-label="Facebook">
+                            <i class="bi bi-facebook"></i>
+                        </a>
+                        <a href="https://instagram.com" target="_blank" class="social-link" aria-label="Instagram">
+                            <i class="bi bi-instagram"></i>
+                        </a>
+                        <a href="https://linkedin.com" target="_blank" class="social-link" aria-label="LinkedIn">
+                            <i class="bi bi-linkedin"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Upcoming Events Section -->
+    <section class="py-5 fade-in" style="animation-delay: 1.2s;">
+        <div class="container">
+            <h2 class="text-center mb-5">Próximos Eventos</h2>
+            <div id="upcomingEvents" class="row g-4">
+                <!-- Los eventos se cargarán dinámicamente aquí -->
+            </div>
+        </div>
+    </section>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/theme.js"></script>
+    <script src="js/navbar.js"></script>
+    <script type="module" src="/src/js/navigation.js"></script>
     <script>
         // Cargar eventos próximos
         async function loadUpcomingEvents() {
@@ -73,19 +184,19 @@
                 const { data: events, error } = await window.supabase
                     .from('events')
                     .select('*')
-                    .gte('date', new Date().toISOString()) // Solo eventos futuros
+                    .gte('date', new Date().toISOString())
                     .order('date', { ascending: true })
-                    .limit(3); // Mostrar solo los 3 próximos eventos
+                    .limit(3);
 
                 if (error) throw error;
 
-                const container = document.getElementById('featuredEvents');
+                const container = document.getElementById('upcomingEvents');
                 container.innerHTML = '';
 
                 if (events.length === 0) {
                     container.innerHTML = `
                         <div class="col-12 text-center">
-                            <p class="text-muted">No hay eventos próximos</p>
+                            <p>No hay eventos próximos</p>
                         </div>
                     `;
                     return;
@@ -93,59 +204,44 @@
 
                 events.forEach(event => {
                     const eventDate = new Date(event.date);
-                    const formattedDate = eventDate.toLocaleDateString('es-ES', {
-                        weekday: 'long',
+                    const formattedDate = eventDate.toLocaleString('es-ES', {
                         year: 'numeric',
-                        month: 'long',
-                        day: 'numeric'
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit'
                     });
 
-                    container.innerHTML += `
-                        <div class="col-md-4 mb-4">
-                            <div class="card h-100">
-                                ${event.image_url ? `
-                                    <img src="${event.image_url}" class="card-img-top" alt="${event.title}" style="height: 200px; object-fit: cover;">
-                                ` : `
-                                    <img src="https://via.placeholder.com/300x200?text=No+Image" class="card-img-top" alt="No image available">
-                                `}
-                                <div class="card-body">
-                                    <h5 class="card-title">${event.title}</h5>
-                                    <p class="card-text">
-                                        <i class="fas fa-calendar-alt"></i> ${formattedDate}<br>
-                                        <i class="fas fa-map-marker-alt"></i> ${event.location}
-                                    </p>
-                                    <p class="card-text">${event.description.substring(0, 100)}${event.description.length > 100 ? '...' : ''}</p>
-                                    <a href="eventos.html" class="btn btn-primary">Ver Detalles</a>
-                                </div>
+                    const col = document.createElement('div');
+                    col.className = 'col-md-4';
+                    col.innerHTML = `
+                        <div class="card event-card">
+                            ${event.image_url ? `
+                                <img src="${event.image_url}" class="card-img-top event-image" alt="${event.title}">
+                            ` : ''}
+                            <div class="card-body">
+                                <h5 class="card-title">${event.title}</h5>
+                                <p class="card-text">
+                                    <i class="bi bi-calendar"></i> ${formattedDate}<br>
+                                    <i class="bi bi-geo-alt"></i> ${event.location}
+                                </p>
+                                <p class="card-text">${event.description.substring(0, 100)}${event.description.length > 100 ? '...' : ''}</p>
+                                <a href="eventos.html" class="btn btn-primary">Ver Detalles</a>
                             </div>
                         </div>
                     `;
+                    container.appendChild(col);
                 });
             } catch (error) {
-                console.error('Error al cargar eventos próximos:', error);
-                const container = document.getElementById('featuredEvents');
-                container.innerHTML = `
-                    <div class="col-12 text-center">
-                        <p class="text-danger">Error al cargar los eventos</p>
-                    </div>
-                `;
+                console.error('Error al cargar eventos:', error);
+                showAlert('Error al cargar eventos', 'danger');
             }
         }
 
-        // Cerrar sesión
-        async function handleLogout() {
-            try {
-                const { error } = await window.supabase.auth.signOut();
-                if (error) throw error;
-                window.location.href = 'login.html';
-            } catch (error) {
-                console.error('Error al cerrar sesión:', error);
-                alert('Error al cerrar sesión');
-            }
-        }
-
-        // Cargar eventos cuando el documento esté listo
-        document.addEventListener('DOMContentLoaded', loadUpcomingEvents);
+        // Inicialización
+        document.addEventListener('DOMContentLoaded', () => {
+            loadUpcomingEvents();
+        });
     </script>
 </body>
 </html> 
