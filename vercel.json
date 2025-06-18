@@ -2,7 +2,19 @@
     "version": 2,
     "builds": [
         {
-            "src": "**/*",
+            "src": "*.html",
+            "use": "@vercel/static"
+        },
+        {
+            "src": "js/*.js",
+            "use": "@vercel/static"
+        },
+        {
+            "src": "styles/*.css",
+            "use": "@vercel/static"
+        },
+        {
+            "src": "components/*.html",
             "use": "@vercel/static"
         }
     ],
@@ -10,6 +22,14 @@
         {
             "src": "/components/(.*)",
             "dest": "/components/$1"
+        },
+        {
+            "src": "/js/(.*)",
+            "dest": "/js/$1"
+        },
+        {
+            "src": "/styles/(.*)",
+            "dest": "/styles/$1"
         },
         {
             "src": "/(.*)",
