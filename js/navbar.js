@@ -1,18 +1,37 @@
 // Función para cargar el navbar
 async function loadNavbar() {
     try {
-        // Obtener la ruta base del proyecto
-        const basePath = window.location.pathname.includes('/src/') ? '/src' : '';
-        
-        // Intentar cargar el navbar
-        const response = await fetch(`${basePath}/components/navbar.html`);
-        if (!response.ok) {
-            throw new Error('Error al cargar el navbar');
+        // Intentar diferentes rutas posibles
+        const possiblePaths = [
+            './components/navbar.html',
+            '/components/navbar.html',
+            '../components/navbar.html',
+            'components/navbar.html'
+        ];
+
+        let response = null;
+        let html = null;
+
+        // Intentar cada ruta hasta que una funcione
+        for (const path of possiblePaths) {
+            try {
+                response = await fetch(path);
+                if (response.ok) {
+                    html = await response.text();
+                    break;
+                }
+            } catch (e) {
+                console.log(`Ruta ${path} no funcionó, intentando siguiente...`);
+                continue;
+            }
         }
-        
-        const html = await response.text();
+
+        if (!html) {
+            throw new Error('No se pudo cargar el navbar desde ninguna ruta');
+        }
+
+        // Insertar el navbar
         const navbarContainer = document.getElementById('navbar-container');
-        
         if (navbarContainer) {
             navbarContainer.innerHTML = html;
             
@@ -25,7 +44,7 @@ async function loadNavbar() {
         }
     } catch (error) {
         console.error('Error al cargar el navbar:', error);
-        // Mostrar un navbar básico como fallback
+        // Mostrar un mensaje de error en la página
         const navbarContainer = document.getElementById('navbar-container');
         if (navbarContainer) {
             navbarContainer.innerHTML = `
@@ -39,15 +58,6 @@ async function loadNavbar() {
                             <ul class="navbar-nav">
                                 <li class="nav-item">
                                     <a class="nav-link" href="index.html">Inicio</a>
-                                </li>
-                                <li class="nav-item">
-                                    <a class="nav-link" href="calendario.html">Calendario</a>
-                                </li>
-                                <li class="nav-item">
-                                    <a class="nav-link" href="eventos.html">Eventos</a>
-                                </li>
-                                <li class="nav-item">
-                                    <a class="nav-link" href="profile.html">Perfil</a>
                                 </li>
                             </ul>
                         </div>
